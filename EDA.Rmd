@@ -17,25 +17,3 @@ Raw_test <- read.csv("./Data/test_set_features.csv", stringsAsFactors=FALSE)
 ```
 
 
-# I made a change here
-
-# Sandesh's comment
-
-#This is Liz's comment
-#Something else
-
-
-#l
-#d
-#5
-
-```{r}
-# This is a conlict
-# This is a second conflict
-```
-
-
-
-### Random comment1234
-
-
