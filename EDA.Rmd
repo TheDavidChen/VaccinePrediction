@@ -13,6 +13,7 @@ rm(list = ls())
 library(tidyverse) # Data wrangling, ggplot, etc.
 library(knitr)     # This is to make pretty tables (see kable() )
 library(corrplot)  # Correlation plot 
+library(caret)
 
 # Read in data
 Raw_data <- 
@@ -53,6 +54,8 @@ sapply(Training_full, function(x) sum(is.na(x)))
 Since `health_insurance`, `employment_industry`, and `employment_occupation` have almost half data missing, it might make sense to not include these 3 variables as our potential predictors.
 
 ```{r}
+# Remove the 3 variables with almost half missing data
+
 training <- Training_full %>% select(-health_insurance,-employment_industry,-employment_occupation)
 ```
 
@@ -129,8 +132,6 @@ It looks like behavioral variables seem to be positively correlated with each ot
 Similarly, the opinion variables also seem to go together. We can potentially combine these as well. Also, doctor_recc_h1n1 and doctor_recc_seasonal, which represent whether the respondent's doctor recommended h1n1 or seasonal vaccine, also seem to be strongly positively correlated.
 
 
-### Below is experimental
-
 ```{r}
 training %>%
   select(behavioral_antiviral_meds:behavioral_touch_face) %>%
@@ -146,9 +147,34 @@ newvariable1 <- training %>%
 training$safe_behaviors <- newvariable1$safe_behaviors
 
 training <- training %>% select(-behavioral_antiviral_meds:-behavioral_touch_face)
+
+# Remove all NAs
+trainingwithoutNA = na.omit(training)
+
+# Create internal training and testing sets
+set.seed(56)
+train_index = createDataPartition(paste(trainingwithoutNA$seasonal_vaccine, trainingwithoutNA$h1n1_vaccine, sep = ""), p = 0.60, list=FALSE)
+model_train = trainingwithoutNA[train_index,]
+model_test =  trainingwithoutNA[-train_index,]
 ```
 
 It looks like this newly created variable is pretty normally distributed. We have to note that this new variable will use 0 instead of NA. 561 rows would be removed if we use na.rm=FALSE.
+
+Now we can split the dataset for modeling purposes.
+
+```{r}
+# Remove all NAs
+trainingwithoutNA = na.omit(training)
+
+# Create internal training and testing sets
+set.seed(56)
+train_index = createDataPartition(paste(trainingwithoutNA$seasonal_vaccine, trainingwithoutNA$h1n1_vaccine, sep = ""), p = 0.60, list=FALSE)
+model_train = trainingwithoutNA[train_index,]
+model_test =  trainingwithoutNA[-train_index,]
+```
+
+
+### Below is experimental
 
 I'm not sure if we want to go this route but behavioral variables are probably going to be important for both h1n1_vaccine and seasonal_vaccine response variables.
 
