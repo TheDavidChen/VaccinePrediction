@@ -109,7 +109,7 @@ training %>%
   ggplot(aes(value)) +
     facet_wrap(~ key, scales = "free") +
     geom_bar()+
-    ggtitle("Frequencies of demographic variables in the training dataset")+
+    ggtitle("Frequencies of non-demographic variables in the training dataset")+
     theme(text = element_text(size=12), axis.text.x = element_text(angle=45, hjust=1))
 
 ```
