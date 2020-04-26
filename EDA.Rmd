@@ -134,7 +134,7 @@ Similarly, the opinion variables also seem to go together. We can potentially co
 ```{r}
 training %>%
   select(behavioral_antiviral_meds:behavioral_touch_face) %>%
-  mutate(safe_behaviors=rowSums(.,na.rm=TRUE))%>%
+  mutate(safe_behaviors=rowSums(.,na.rm=FALSE))%>%
   ggplot(aes(x=safe_behaviors))+
   geom_bar()
 
@@ -144,6 +144,8 @@ newvariable1 <- training %>%
   select(-behavioral_antiviral_meds:-behavioral_touch_face)
 
 training$safe_behaviors <- newvariable1$safe_behaviors
+
+training <- training %>% select(-behavioral_antiviral_meds:-behavioral_touch_face)
 ```
 
 It looks like this newly created variable is pretty normally distributed. We have to note that this new variable will use 0 instead of NA. 561 rows would be removed if we use na.rm=FALSE.
