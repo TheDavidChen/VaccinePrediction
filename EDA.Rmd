@@ -99,7 +99,7 @@ The respondents are about equally distributed based on marital status. Our sampl
 
 In addition to the above information, the plots also show that most of our respondents own their home. We can also see that we have more female respondents than male.
 
-Next, we can look at the other potential predictors.
+Next, we can look at the other potential predictors and their distributions.
 
 ```{r,fig.height=8, fig.width=16}
 
@@ -114,7 +114,22 @@ training %>%
 
 ```
 
-It might be possible to reduce the number of variables if we combine the behavioral variables together such that this new variable will indicate the number of safe behaviors a respondent adhered to. A "behavioral" variable could just add variables from behavioral_antiviral_meds to behavioral_touch_face.
+Let's also look at the correlation matrix for these 20 non-demographic predictors.
+
+```{r,fig.height=8, fig.width=16}
+
+nondemocorr <- cor(as.matrix(select(training,h1n1_concern:opinion_seas_sick_from_vacc)),method=c("spearman"),use="pairwise.complete.obs")
+corrplot(nondemocorr, method="number", number.cex = .7)
+
+```
+
+
+It looks like behavioral variables seem to be positively correlated with each other. It might be possible to reduce the number of variables if we combine the behavioral variables together such that this new variable will indicate the number of safe behaviors a respondent adhered to. A "behavioral" variable could just add variables from behavioral_antiviral_meds to behavioral_touch_face.
+
+Similarly, the opinion variables also seem to go together. We can potentially combine these as well. Also, doctor_recc_h1n1 and doctor_recc_seasonal, which represent whether the respondent's doctor recommended h1n1 or seasonal vaccine, also seem to be strongly positively correlated.
+
+
+### Below is experimental
 
 ```{r}
 training %>%
@@ -136,7 +151,8 @@ It looks like this newly created variable is pretty normally distributed. We hav
 I'm not sure if we want to go this route but behavioral variables are probably going to be important for both h1n1_vaccine and seasonal_vaccine response variables.
 
 
-```{r}
+```{r,fig.height=8,width=16}
+
 summary(glm(seasonal_vaccine~safe_behaviors,data=training,family="binomial"))
 
 summary(glm(h1n1_vaccine~safe_behaviors,data=training,family="binomial"))
