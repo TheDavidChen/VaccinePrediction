@@ -14,7 +14,6 @@ library(tidyverse) # Data wrangling, ggplot, etc.
 library(knitr)     # This is to make pretty tables (see kable() )
 library(corrplot)  # Correlation plot 
 
-
 # Read in data
 Raw_data <- 
   read.csv("./Data/training_set_features.csv", stringsAsFactors=FALSE,
@@ -51,8 +50,11 @@ sapply(Training_full, function(x) sum(is.na(x)))
 #kable(sapply(wiki, function(x) sum(is.na(x))), col.names = 'NA Values')
 ```
 
+Since `health_insurance`, `employment_industry`, and `employment_occupation` have almost half data missing, it might make sense to not include these 3 variables as our potential predictors.
 
-
+```{r}
+training <- Training_full %>% select(-health_insurance,-employment_industry,-employment_occupation)
+```
 
 # General EDA
 Basic exploration of the data. 
@@ -66,11 +68,36 @@ Raw_labels %>%
             n = n())
 ```
 
+In addition to the 2 response variables, we also have 32 potential predictors (not including respondent IDs and the 3 variables from above with huge number of NAs). Out of these, 12 are demographic variables. Let's first look at these demographic variables.
 
+```{r,fig.height=8}
 
+training %>%
+  select(age_group:household_children)%>%
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_bar()+
+    ggtitle("Frequencies of demographic variables in the training dataset")+
+    theme(text = element_text(size=12), axis.text.x = element_text(angle=45, hjust=1))
 
+```
 
+From the plot above, we can see that the distribution of data by age group is not skewed (almost uniform) so we have enough data from each age group. The census_msa plot shows that most of our respondents live in a metropolitan statistical area (MSA) as defined by the US Census, with only about 6000 in Non-MSA.
 
+Based on the education plot, it looks like most of our respondents have at least some college education. We do have 1407 missing education values though.
+
+We can also see that most of our respondents are either employed or not in the labor force. Respondents not in the labor force are not employed and have stopped looking for work. Only a small number of respondents are unemployed and looking for a job. We also have 1463 missing values here.
+
+Even though our data doesn't specify the name of the geographical region, it looks like we have decent representation from all 10 geographical regions.
+
+The household variables suggest that most of the respondents live in a household either by themselves or with one other adult. Most of the respondents also have no children in the household. It might make sense to combine household_children and household_adults to create the total household size.
+
+The income data suggests that most respondents are above poverty with a sizeable chunk making over 75,000 USD per year. However, we have 4423 missing values, which may be a sizeable chunk for our prediction purposes.
+
+The respondents are about equally distributed based on marital status. Our sample is also overwhelmingly white with very few participants from other races. As such, our findings may not be applicable to general population.
+
+In addition to the above information, the plots also show that most of our respondents own their home. We can also see that we have more female respondents than male.
 
 
 
