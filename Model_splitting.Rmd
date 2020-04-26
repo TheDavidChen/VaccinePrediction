@@ -1,0 +1,72 @@
+---
+title: "Model Splitting"
+author: "David Chen"
+date: "4/26/2020"
+output: html_document
+---
+
+This file is everything to make the training/testing set. Use `model_train` and `model_test`
+
+
+
+```{r warning = F, message = F}
+# Clean up R environment
+rm(list = ls())
+
+# Load in packages
+library(tidyverse) # Data wrangling, ggplot, etc.
+library(knitr)     # This is to make pretty tables (see kable() )
+library(corrplot)  # Correlation plot 
+library(caret)
+
+# Read in data
+Raw_data <- 
+  read.csv("./Data/training_set_features.csv", stringsAsFactors=FALSE,
+           na.strings=c("","NA")) # Account for blanks being NA
+Raw_labels <- 
+  read.csv("./Data/training_set_labels.csv", stringsAsFactors=FALSE)
+Raw_test <- 
+  read.csv("./Data/test_set_features.csv", stringsAsFactors=FALSE)
+
+# Global options
+set.seed(14)
+theme_set(theme_bw()) # Set a better ggplot theme
+options(digits=3)     # Set digits to 3 to avoid too many values
+```
+
+
+```{r}
+# Since the datasets are in the same order, I just cbind() the two, dropping
+#  respondent id in the Raw_labels dataset
+Training_full <- cbind(Raw_data, Raw_labels[2:3])
+```
+
+```{r}
+# Remove the 3 variables with almost half missing data
+
+training <- Training_full %>% select(-health_insurance,-employment_industry,-employment_occupation)
+```
+
+```{r}
+newvariable1 <- training %>%
+  select(behavioral_antiviral_meds:behavioral_touch_face) %>%
+  mutate(safe_behaviors=rowSums(.,na.rm=TRUE))%>%
+  select(-behavioral_antiviral_meds:-behavioral_touch_face)
+
+training$safe_behaviors <- newvariable1$safe_behaviors
+
+training <- training %>% select(-behavioral_antiviral_meds:-behavioral_touch_face)
+```
+
+```{r}
+# Remove all NAs
+trainingwithoutNA = na.omit(training)
+
+# Create internal training and testing sets
+set.seed(56)
+train_index = createDataPartition(paste(trainingwithoutNA$seasonal_vaccine, trainingwithoutNA$h1n1_vaccine, sep = ""), p = 0.60, list=FALSE)
+model_train = trainingwithoutNA[train_index,]
+model_test =  trainingwithoutNA[-train_index,]
+
+rm(Training_full, training, newvariable1, train_index, trainingwithoutNA)
+```
