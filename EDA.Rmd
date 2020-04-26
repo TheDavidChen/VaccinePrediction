@@ -101,7 +101,7 @@ In addition to the above information, the plots also show that most of our respo
 
 Next, we can look at the other potential predictors.
 
-```{r,fig.height=8}
+```{r,fig.height=8, fig.width=16}
 
 training %>%
   select(h1n1_concern:opinion_seas_sick_from_vacc)%>%
