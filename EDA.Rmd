@@ -99,8 +99,46 @@ The respondents are about equally distributed based on marital status. Our sampl
 
 In addition to the above information, the plots also show that most of our respondents own their home. We can also see that we have more female respondents than male.
 
+Next, we can look at the other potential predictors.
+
+```{r,fig.height=8}
+
+training %>%
+  select(h1n1_concern:opinion_seas_sick_from_vacc)%>%
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_bar()+
+    ggtitle("Frequencies of demographic variables in the training dataset")+
+    theme(text = element_text(size=12), axis.text.x = element_text(angle=45, hjust=1))
+
+```
+
+It might be possible to reduce the number of variables if we combine the behavioral variables together such that this new variable will indicate the number of safe behaviors a respondent adhered to. A "behavioral" variable could just add variables from behavioral_antiviral_meds to behavioral_touch_face.
+
+```{r}
+training %>%
+  select(behavioral_antiviral_meds:behavioral_touch_face) %>%
+  mutate(safe_behaviors=rowSums(.,na.rm=TRUE))%>%
+  ggplot(aes(x=safe_behaviors))+
+  geom_bar()
+
+newvariable1 <- training %>%
+  select(behavioral_antiviral_meds:behavioral_touch_face) %>%
+  mutate(safe_behaviors=rowSums(.,na.rm=TRUE))%>%
+  select(-behavioral_antiviral_meds:-behavioral_touch_face)
+
+training$safe_behaviors <- newvariable1$safe_behaviors
+```
+
+It looks like this newly created variable is pretty normally distributed. We have to note that this new variable will use 0 instead of NA. 561 rows would be removed if we use na.rm=FALSE.
+
+I'm not sure if we want to go this route but behavioral variables are probably going to be important for both h1n1_vaccine and seasonal_vaccine response variables.
 
 
+```{r}
+summary(glm(seasonal_vaccine~safe_behaviors,data=training,family="binomial"))
 
+summary(glm(h1n1_vaccine~safe_behaviors,data=training,family="binomial"))
 
-
+```
