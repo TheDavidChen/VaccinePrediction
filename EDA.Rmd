@@ -5,7 +5,7 @@ date: "4/18/2020"
 output: html_document
 ---
 
-```{r warnings = F, message = F}
+```{r warning = F, message = F}
 # Clean up R environment
 rm(list = ls())
 
@@ -16,9 +16,13 @@ library(corrplot)  # Correlation plot
 
 
 # Read in data
-Raw_data <- read.csv("./Data/training_set_features.csv", stringsAsFactors=FALSE)
-Raw_labels <- read.csv("./Data/training_set_labels.csv", stringsAsFactors=FALSE)
-Raw_test <- read.csv("./Data/test_set_features.csv", stringsAsFactors=FALSE)
+Raw_data <- 
+  read.csv("./Data/training_set_features.csv", stringsAsFactors=FALSE,
+           na.strings=c("","NA")) # Account for blanks being NA
+Raw_labels <- 
+  read.csv("./Data/training_set_labels.csv", stringsAsFactors=FALSE)
+Raw_test <- 
+  read.csv("./Data/test_set_features.csv", stringsAsFactors=FALSE)
 
 # Global options
 set.seed(14)
@@ -37,9 +41,7 @@ Training_full <- cbind(Raw_data, Raw_labels[2:3])
 ```
 
 
-
-
-Check the total number of NAs for each row. Note that for some columns, there is just a blank value instead of NA (employment_industry/occupation). This is not entirely representative.
+Check the total number of NAs for each row. Note that `health_insurance`, `employment_industry`, and `employment_occupation` have a LOT of NAs.  
 
 ```{r}
 # Total number of NAs
@@ -63,6 +65,9 @@ Raw_labels %>%
             h1n1_vaccinated = sum(h1n1_vaccine), 
             n = n())
 ```
+
+
+
 
 
 
