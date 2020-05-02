@@ -85,5 +85,4 @@ rm(Training_full, training, newvariable1, train_index, trainingwithoutNA)
 # Export the two training and testing sets as csv files
 write.csv(model_train, './Data/model_train.csv')
 write.csv(model_test, './Data/model_test.csv')
-          
 ```
