@@ -12,7 +12,8 @@ output: html_document
 ## Work I still need to get done:
 
 1. Including interactions
-2. 
+2. Best subset selection
+
 
 
 
