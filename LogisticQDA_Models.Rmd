@@ -1,0 +1,51 @@
+---
+title: "Logistic_QDA"
+author: "David Chen"
+date: "5/2/2020"
+output: html_document
+---
+
+Here we will implement the Logistic Regression / QDA Model
+
+First import all the necessary data and packages
+
+```{r warning = F, message = F}
+# Clean up R environment
+rm(list = ls())
+
+# Load in packages
+library(tidyverse) # Data wrangling, ggplot, etc.
+library(knitr)     # This is to make pretty tables (see kable() )
+
+
+# Read in training and testing data
+model_test <- 
+  readRDS("./Data/model_test.RDS") 
+model_train <- 
+  readRDS("./Data/model_train.RDS")
+
+# Global options
+set.seed(14)
+theme_set(theme_bw()) # Set a better ggplot theme
+options(digits=3)     # Set digits to 3 to avoid too many values
+```
+
+# Initial testing
+
+```{r echo = F}
+# Fit logistic reg on full data
+Full_glm <- glm(Direction~Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + log(Volume), Weekly, family = binomial)
+summary(Full_glm)
+```
+
+
+
+
+
+
+
+
+
+
+
+
