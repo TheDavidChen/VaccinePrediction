@@ -38,12 +38,17 @@ options(digits=3)     # Set digits to 3 to avoid too many values
 ```{r}
 # Since the datasets are in the same order, I just cbind() the two, dropping
 #  respondent id in the Raw_labels dataset
-Training_full <- cbind(Raw_data, Raw_labels[2:3])
+Training_full <- 
+  Raw_data %>%
+  mutate(safe_behaviors = NA) %>% # Initalize variable so vaccine variables are at end
+  cbind(., Raw_labels[2:3])
 ```
 
 ```{r}
 # Remove the 3 variables with almost half missing data
-training <- Training_full %>% select(-health_insurance,-employment_industry,-employment_occupation)
+training <- 
+  Training_full %>% 
+  select(-health_insurance,-employment_industry,-employment_occupation) 
 ```
 
 ```{r}
@@ -82,7 +87,7 @@ model_test =  trainingwithoutNA[-train_index,]
 # Removing intermediate sets
 rm(Training_full, training, newvariable1, train_index, trainingwithoutNA)
 
-# Export the two training and testing sets as csv files
-write.csv(model_train, './Data/model_train.csv')
-write.csv(model_test, './Data/model_test.csv')
+# Export the two training and testing sets as RDS files
+saveRDS(model_train, './Data/model_train.RDS')
+saveRDS(model_test, './Data/model_test.RDS')
 ```
