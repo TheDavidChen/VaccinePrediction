@@ -205,6 +205,5 @@ Unfortunitally, clustering does not appear to work with this dataset well.  Spli
 
 ###SVM
 ```{r}
-
  
 ```
