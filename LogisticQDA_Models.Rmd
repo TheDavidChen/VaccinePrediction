@@ -9,6 +9,18 @@ output: html_document
 # Note: This is a huge work in process. Currently we are just trying basic ideas. 
 
 
+## Work I still need to get done:
+
+1. Including interactions
+2. 
+
+
+
+---
+
+
+
+
 Here we will implement the Logistic Regression / QDA Model
 
 First import all the necessary data and packages
@@ -20,6 +32,7 @@ rm(list = ls())
 # Load in packages
 library(tidyverse) # Data wrangling, ggplot, etc.
 library(knitr)     # This is to make pretty tables (see kable() )
+library(MASS)      # For QDA function 
 
 
 # Read in training and testing data
@@ -112,6 +125,84 @@ mean(glm.pred == seasonal_test$seasonal_vaccine)
 # Proportion correct if you just no each time - 52%
 mean(0 == seasonal_test$seasonal_vaccine)
 ```
+
+
+
+############################
+
+# Trying out stepwise selection
+
+```{r}
+# Both directions
+step_glm <- step(Full_glm, trace = FALSE)
+summary(step_glm)
+```
+
+```{r echo = F}
+# Store the predictions on the existing data
+step_probs <- predict(step_glm, type = 'response')
+
+# Determine predictions
+step_pred <- rep(0, n_train)
+step_pred[step_probs > .5] <- 1
+
+# Generate confusion matrix
+table(step_probs, seasonal_train$seasonal_vaccine)
+```
+
+Training error rate increases by 0.1%... it seems like our basic stepwise selection won't be as effective.
+
+```{r}
+# Proportion of correct responses
+mean(step_pred == seasonal_train$seasonal_vaccine)
+```
+
+
+
+
+
+###########################################################################
+
+
+# QDA
+
+## Fitting QDA with all variables
+```{r echo = F}
+# Fit the QDA
+qda.fit <- qda(seasonal_vaccine~., data = seasonal_train)
+qda.pred <- predict(qda.fit, seasonal_train)
+qda.class <- qda.pred$class
+
+# Confusion Matrix
+table(qda.class, seasonal_train$seasonal_vaccine)
+```
+
+```{r}
+mean(qda.class == seasonal_train$seasonal_vaccine)
+```
+
+Applying to testing set
+```{r echo = F}
+# Fit the QDA
+qda_test_pred <- predict(qda.fit, seasonal_test)
+qda_test_class <- qda_test_pred$class
+
+# Confusion Matrix
+table(qda_test_class, seasonal_test$seasonal_vaccine)
+```
+
+```{r}
+mean(qda_test_class == seasonal_test$seasonal_vaccine)
+```
+
+
+
+
+
+
+
+
+
 
 
 
