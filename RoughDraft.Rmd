@@ -1,0 +1,66 @@
+---
+title: "Rough Draft"
+author: "David Chen"
+date: "5/2/2020"
+output: html_document
+---
+
+Rough Draft
+
+
+
+
+# Introduction
+
++ Why we took on the project
++ What we're trying to solve 
+
+
+
+## EDA 
+
+
+
+
+# Analyses
+
+## Splitting into training/testing
+
+
+## Model 1
+
+
++ Mention how the model works
++ Considerations while fitting (conditions are met)
++ Test/train results, confusion matrix + accuracy + specificity/sensitivity
+
+
+
+
+## Model 2
+
+## Model 3
+
+
+
+
+## Comparing them all together
+
+
+# Conclusion 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
