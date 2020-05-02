@@ -5,6 +5,10 @@ date: "5/2/2020"
 output: html_document
 ---
 
+
+# Note: This is a huge work in process. Currently we are just trying basic ideas. 
+
+
 Here we will implement the Logistic Regression / QDA Model
 
 First import all the necessary data and packages
@@ -30,18 +34,84 @@ theme_set(theme_bw()) # Set a better ggplot theme
 options(digits=3)     # Set digits to 3 to avoid too many values
 ```
 
+
+# Seasonal Only
+```{r}
+seasonal_train <- 
+  model_train %>%
+  select(-h1n1_vaccine, -respondent_id)
+
+seasonal_test <-
+  model_test %>%
+  select(-h1n1_vaccine, -respondent_id)
+```
+
+
 # Initial testing
 
 ```{r echo = F}
 # Fit logistic reg on full data
-Full_glm <- glm(Direction~Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + log(Volume), Weekly, family = binomial)
+Full_glm <- 
+  glm(seasonal_vaccine~., data = seasonal_train, family = binomial)
 summary(Full_glm)
 ```
 
 
+## Full model - LR - Training error rates
+
+```{r echo = F}
+# Get the number of rows
+n_train <- nrow(seasonal_train)
+
+# Store the predictions on the existing data
+glm.probs <- predict(Full_glm, type = 'response')
+
+# Determine predictions
+glm.pred <- rep(0, n_train)
+glm.pred[glm.probs > .5] <- 1
+
+# Generate confusion matrix
+table(glm.pred, seasonal_train$seasonal_vaccine)
+```
+
+Training error rate of 78.2%, compared to naive 52.2%. Not too bad!
+
+```{r}
+# Proportion of correct responses
+mean(glm.pred == seasonal_train$seasonal_vaccine)
+
+# Proportion correct if you just no each time - 52%
+mean(0 == seasonal_train$seasonal_vaccine)
+
+```
+
+## Full model - LR -  testing error rates
 
 
+```{r echo = F}
+# Get the number of rows
+n_test <- nrow(seasonal_test)
 
+# Store the predictions on the existing data
+glm.probs <- predict(Full_glm, newdata = seasonal_test,type = 'response')
+
+# Determine predictions
+glm.pred <- rep(0, n_test)
+glm.pred[glm.probs > .5] <- 1
+
+# Generate confusion matrix
+table(glm.pred, seasonal_test$seasonal_vaccine)
+```
+
+
+Applied to the testing set, the testing error rate only dips slightly to 77.9%. The naive model would have done 52.2%. 
+```{r}
+# Proportion of correct responses
+mean(glm.pred == seasonal_test$seasonal_vaccine)
+
+# Proportion correct if you just no each time - 52%
+mean(0 == seasonal_test$seasonal_vaccine)
+```
 
 
 
