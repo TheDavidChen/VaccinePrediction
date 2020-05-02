@@ -22,29 +22,45 @@ Rough Draft
 
 
 
+
+### Clustering
+
+
+
 # Analyses
 
 ## Splitting into training/testing
 
 
-## Model 1
+## Model 1 - Logistic / QDA
 
++ Mention how the model works, why we picked the model
 
-+ Mention how the model works
++ Why we're doing certain steps (Cross validation)
+
 + Considerations while fitting (conditions are met)
+
 + Test/train results, confusion matrix + accuracy + specificity/sensitivity
 
 
++ Keep in mind model specific subjects (pruning)
 
 
-## Model 2
+## Model 2 - Tree-based
 
-## Model 3
+
+
+
+## Model 3 - SVM
 
 
 
 
 ## Comparing them all together
+
++ Full table of the results
+
+-> Just testing accuracy/spec/sens 
 
 
 # Conclusion 
