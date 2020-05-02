@@ -177,3 +177,33 @@ summary(glm(seasonal_vaccine~safe_behaviors,data=training,family="binomial"))
 summary(glm(h1n1_vaccine~safe_behaviors,data=training,family="binomial"))
 
 ```
+
+### Clustering
+
+```{r}
+#For clustering, everything has to be numeric. I also created a column to combine the 2x2 vaccine outcome conditions was just one variable.
+All_numeric <- 
+  read.csv("./Data/All Numbers.csv", stringsAsFactors=FALSE,
+           na.strings=c("","NA"))
+
+Num.withoutNA = na.omit(All_numeric)
+
+set.seed(120) #Hierarchical clustering
+hc.out <- hclust(dist(Num.withoutNA), method="average")
+plot(hc.out)
+hc.clusters <- cutree(hc.out,4) #Since there's 4 vaccine options, this seemed like a logical cut
+table(hc.clusters, Num.withoutNA$vaccine) #Clustering doesn't seem to give us any meaningful division by which vaccine participants either did or did not get.
+set.seed(130) #K-means clustering
+num.km <- within(Num.withoutNA, rm(vaccine))
+km.out=kmeans(num.km,4,nstart=20)
+km.clusters=km.out$cluster
+table(km.clusters)
+table(km.clusters,hc.clusters) #There is a good level of overlap in the way the two methods clustered, for example Cluster 2 with K-means is almost completely the same as Cluster 4 from the Hierarchical clustering.
+
+```
+Unfortunitally, clustering does not appear to work with this dataset well.  Splitting the data into 4 clusters (the number of levels the outcome variable has) does not cluster participants well according to whether or not they got either of the vaccines.
+
+###SVM
+```{r}
+
+```
