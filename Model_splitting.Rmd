@@ -43,19 +43,24 @@ Training_full <- cbind(Raw_data, Raw_labels[2:3])
 
 ```{r}
 # Remove the 3 variables with almost half missing data
-
 training <- Training_full %>% select(-health_insurance,-employment_industry,-employment_occupation)
 ```
 
 ```{r}
-newvariable1 <- training %>%
+# Create safe_behaviors which is a sum of all the behavioral variables
+newvariable1 <- 
+  training %>%
   select(behavioral_antiviral_meds:behavioral_touch_face) %>%
   mutate(safe_behaviors=rowSums(.,na.rm=TRUE))%>%
   select(-behavioral_antiviral_meds:-behavioral_touch_face)
 
+# Add the variable to the full set
 training$safe_behaviors <- newvariable1$safe_behaviors
 
-training <- training %>% select(-behavioral_antiviral_meds:-behavioral_touch_face)
+# Remove original behavioral variables
+training <- 
+  training %>% 
+  select(-behavioral_antiviral_meds:-behavioral_touch_face)
 ```
 
 ```{r}
@@ -64,9 +69,21 @@ trainingwithoutNA = na.omit(training)
 
 # Create internal training and testing sets
 set.seed(56)
-train_index = createDataPartition(paste(trainingwithoutNA$seasonal_vaccine, trainingwithoutNA$h1n1_vaccine, sep = ""), p = 0.60, list=FALSE)
-model_train = trainingwithoutNA[train_index,]
+train_index <- 
+  createDataPartition(paste(trainingwithoutNA$seasonal_vaccine, 
+                            trainingwithoutNA$h1n1_vaccine, sep = ""), 
+                      p = 0.60, list=FALSE)
+# Training set
+model_train <- trainingwithoutNA[train_index,]
+
+# Testing set
 model_test =  trainingwithoutNA[-train_index,]
 
+# Removing intermediate sets
 rm(Training_full, training, newvariable1, train_index, trainingwithoutNA)
+
+# Export the two training and testing sets as csv files
+write.csv(model_train, './Data/model_train.csv')
+write.csv(model_test, './Data/model_test.csv')
+          
 ```
