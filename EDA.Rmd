@@ -56,7 +56,10 @@ Since `health_insurance`, `employment_industry`, and `employment_occupation` hav
 ```{r}
 # Remove the 3 variables with almost half missing data
 
-training <- Training_full %>% select(-health_insurance,-employment_industry,-employment_occupation)
+training <- 
+  Training_full %>% 
+  dplyr::select(-health_insurance,-employment_industry,-employment_occupation)
+
 ```
 
 # General EDA
@@ -121,7 +124,10 @@ Let's also look at the correlation matrix for these 20 non-demographic predictor
 
 ```{r,fig.height=8, fig.width=16}
 
-nondemocorr <- cor(as.matrix(select(training,h1n1_concern:opinion_seas_sick_from_vacc)),method=c("spearman"),use="pairwise.complete.obs")
+nondemocorr <- 
+  cor(as.matrix(select(training,h1n1_concern:opinion_seas_sick_from_vacc)), 
+      method=c("spearman"), use="pairwise.complete.obs")
+
 corrplot(nondemocorr, method="number", number.cex = .7)
 
 ```
