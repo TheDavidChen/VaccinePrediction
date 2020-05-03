@@ -317,7 +317,7 @@ vac_plot %>%
 ```
 
 
-```{r}
+```{r fig.cap = 'Seasonal Vaccine Rates by Doctor Recommendation'}
 vac_plot %>%
   group_by(doctor_recc_seasonal, seasonal_vaccine) %>%
   tally() %>%
