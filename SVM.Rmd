@@ -42,6 +42,18 @@ test.pred <- predict(svc.fit, model_test)
 table(model_test$h1n1_vaccine, test.pred)
 (5768+966)/7973
 
+#Tuning
+set.seed(1)
+tune.out <-  tune(svm,  h1n1_vaccine~ ., data = model_train, kernel = "linear", ranges = list(cost =c(0.01, 0.05, 0.1, 0.5,  1, 5, 10)))
+summary(tune.out)
+svc.fit <- svm(h1n1_vaccine~., data=model_train,kernel="linear",cost=) #cost will be set to the best parameter given
+train.pred <- predict(svc.fit, model_train)
+table(model_train$h1n1_vaccine,train.pred)
+#prediction rate
+test.pred <- predict(svc.fit, model_test)
+table(model_test$h1n1_vaccine, test.pred)
+#prediction rate
+
 #SVM with radial kernel
 set.seed(140)
 svm.fit <- svm(h1n1_vaccine~.,data=model_train, kernel="radial")
@@ -52,6 +64,18 @@ table(model_train$h1n1_vaccine, train.pred)
 test.pred <- predict(svm.fit, model_test)
 table(model_test$h1n1_vaccine, test.pred)
 (5772+927)/7973
+
+#Tuning
+set.seed(1)
+tune.out <-  tune(svm,  h1n1_vaccine~ ., data = model_train, kernel = "radial", ranges = list(cost =c(0.01, 0.05, 0.1, 0.5,  1, 5, 10)))
+summary(tune.out)
+svm.fit <- svm(h1n1_vaccine~.,data=model_train, kernel="radial", cost=) #same as above
+train.pred <-  predict(svm.fit, model_train)
+table(model_train$h1n1_vaccine, train.pred)
+#prediction rate
+test.pred <- predict(svm.fit, model_test)
+table(model_test$h1n1_vaccine, test.pred)
+#prediction rate
 
 
 #SVM with polynomial kernel
@@ -64,6 +88,18 @@ table(model_train$h1n1_vaccine, train.pred)
 test.pred <- predict(svm.fit, model_test)
 table(model_test$h1n1_vaccine, test.pred)
 (5773+912)/7973
+
+#Tuning
+set.seed(1)
+tune.out <-  tune(svm,  h1n1_vaccine~ ., data = model_train, kernel = "poly", ranges = list(cost =c(0.01, 0.05, 0.1, 0.5,  1, 5, 10)))
+summary(tune.out)
+svm.fit <- svm(h1n1_vaccine~.,data=model_train, kernel="poly", cost=) #same as above
+train.pred <-  predict(svm.fit, model_train)
+table(model_train$h1n1_vaccine, train.pred)
+#prediction rate
+test.pred <- predict(svm.fit, model_test)
+table(model_test$h1n1_vaccine, test.pred)
+#prediction rate
 
 
 #SVM for Seasonal
@@ -79,6 +115,18 @@ test.pred <- predict(svc.fit, model_test)
 table(model_test$seasonal_vaccine, test.pred)
 (3527+2893)/7973
 
+#Tuning
+set.seed(1)
+tune.out <-  tune(svm,  seasonal_vaccine~ ., data = model_train, kernel = "linear", ranges = list(cost =c(0.01, 0.05, 0.1, 0.5,  1, 5, 10)))
+summary(tune.out)
+svc.fit <- svm(seasonal_vaccine~., data=model_train,kernel="linear",cost=) #cost will be set to the best parameter given
+train.pred <- predict(svc.fit, model_train)
+table(model_train$seasonal_vaccine,train.pred)
+#prediction rate
+test.pred <- predict(svc.fit, model_test)
+table(model_test$seasonal_vaccine, test.pred)
+#prediction rate
+
 #SVM with radial kernel
 set.seed(140)
 svm.fit <- svm(seasonal_vaccine~.,data=model_train, kernel="radial")
@@ -89,6 +137,18 @@ table(model_train$seasonal_vaccine, train.pred)
 test.pred <- predict(svm.fit, model_test)
 table(model_test$seasonal_vaccine, test.pred)
 (3488+2934)/7973
+
+#Tuning
+set.seed(1)
+tune.out <-  tune(svm,  seasonal_vaccine~ ., data = model_train, kernel = "radial", ranges = list(cost =c(0.01, 0.05, 0.1, 0.5,  1, 5, 10)))
+summary(tune.out)
+svm.fit <- svm(seasonal_vaccine~.,data=model_train, kernel="radial", cost=) #same as above
+train.pred <-  predict(svm.fit, model_train)
+table(model_train$seasonal_vaccine, train.pred)
+#prediction rate
+test.pred <- predict(svm.fit, model_test)
+table(model_test$seasonal_vaccine, test.pred)
+#prediction rate
 
 
 #SVM with polynomial kernel
@@ -101,6 +161,18 @@ table(model_train$seasonal_vaccine, train.pred)
 test.pred <- predict(svm.fit, model_test)
 table(model_test$seasonal_vaccine, test.pred)
 (3518+2861)/7973
+
+#Tuning
+set.seed(1)
+tune.out <-  tune(svm,  seasonal_vaccine~ ., data = model_train, kernel = "poly", ranges = list(cost =c(0.01, 0.05, 0.1, 0.5,  1, 5, 10)))
+summary(tune.out)
+svm.fit <- svm(seasonal_vaccine~.,data=model_train, kernel="poly", cost=) #same as above
+train.pred <-  predict(svm.fit, model_train)
+table(model_train$seasonal_vaccine, train.pred)
+#prediction rate
+test.pred <- predict(svm.fit, model_test)
+table(model_test$seasonal_vaccine, test.pred)
+#prediction rate
 ```
 
 For the H1N1 vaccinations, SVC had a predictive ability of 84.9%, which accounts for a training error rate of 15.1%.  The test error rate was 15.5%, which means that the testing prediction rate was 85.5%.  Radial SVM had a test prediction rate of 84%, giving an error rate of 16%.  The SVM with a polynomial kernel had a test error rate of 16.2%, which is the highest of the three models.  The test prediction rate was 83.2%.
