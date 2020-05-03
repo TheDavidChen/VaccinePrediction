@@ -210,8 +210,97 @@ model_test =  trainingwithoutNA[-train_index,]
 
 Checking relationship predictors have with the response
 
-It seems that those in the older age group tend to get the seasonal vaccine
+```{r fig.cap = 'Seasonal Vaccine Distributions Among Demographic Variables'}
+# First, select all the demograph variables
+# Convert all the variables to characters so the pivot works. Has to be the same type
+# Next, convert the vaccine variables to Yes/No for the legend to be legible
+# Pivot longer, based on the vaccine variable
+# Group and tally so the values are easy to plot with ggplot2
+seasonal_demo <-
+  training %>%
+  select(age_group:seasonal_vaccine) %>% 
+  mutate_all(as.character) %>%  # Convert them all the character so we can pivot
+  mutate(seasonal_vaccine = ifelse(seasonal_vaccine == 1, 'Yes', 'No'),
+         h1n1_vaccine = ifelse(h1n1_vaccine == 1, 'Yes', 'No')) %>%
+  select(-h1n1_vaccine) %>%
+  pivot_longer(cols = -seasonal_vaccine) %>%
+  group_by(name, seasonal_vaccine, value) %>%
+  tally() 
+
+# Obtain the list of names to filter during plotting
+demo_names <- unique(seasonal_demo$name)
+
+# For some reason income_poverty breaks the plot
+seasonal_demo %>%
+  filter(name %in% demo_names[c(1:7, 9:12)]) %>%
+  ggplot(aes(x = value, y = n, fill = seasonal_vaccine)) +
+      facet_wrap(~ name, scales = "free") +
+      geom_bar(position="fill", stat="identity")+
+      ggtitle("Seasonal Vaccine Distributions Among Demographic Variables") +
+      theme(text = element_text(size=6), axis.text.x = element_text(angle=60, hjust=1))
+```
+
+```{r fig.cap='H1N1 Vaccine Distributions Among Demographic Variables'}
+# Repeat the same process for h1n1
+h1n1_demo <-
+  training %>%
+  select(age_group:seasonal_vaccine) %>% 
+  mutate_all(as.character) %>%  # Convert them all the character so we can pivot
+  mutate(seasonal_vaccine = ifelse(seasonal_vaccine == 1, 'Yes', 'No'),
+         h1n1_vaccine = ifelse(h1n1_vaccine == 1, 'Yes', 'No')) %>%
+  select(-seasonal_vaccine) %>%
+  pivot_longer(cols = -h1n1_vaccine, values_drop_na = T) %>%
+  group_by(name, h1n1_vaccine, value) %>%
+  tally()
+
+# Repeat for h1n1
+h1n1_demo %>%
+  filter(name %in% demo_names[c(1:7, 9:12)]) %>%
+  ggplot(aes(x = value, y = n, fill = h1n1_vaccine)) +
+      facet_wrap(~ name, scales = "free") +
+      geom_bar(position="fill", stat="identity")+
+      ggtitle("H1N1 Vaccine Distributions Among Demographic Variables") +
+      theme(text = element_text(size=6), axis.text.x = element_text(angle=60, hjust=1))
+```
+
+```{r fig.cap = 'Seasonal Vaccine Distributions Among Opinion Variables'}
+# Same process as before, but instead with the opinion variables
+seasonal_opinion <-
+  training %>%
+  select(opinion_h1n1_vacc_effective:opinion_seas_sick_from_vacc, 
+         safe_behaviors, seasonal_vaccine) %>% 
+  mutate(seasonal_vaccine = ifelse(seasonal_vaccine == 1, 'Yes', 'No')) %>%
+  pivot_longer(cols = -seasonal_vaccine, values_drop_na = T) %>%
+  group_by(name, seasonal_vaccine, value) %>%
+  tally()
+
+ggplot(seasonal_opinion, aes(x=value, y=n, fill = seasonal_vaccine)) +
+    facet_wrap(~ name, scales = "free") +
+    geom_bar(position="fill", stat="identity")+
+    ggtitle("Seasonal Vaccine Distributions Among Opinion Variables")+
+    theme(text = element_text(size=12), axis.text.x = element_text(angle=45, hjust=1))
+```
+
+```{r fig.cap = 'H1N1 Vaccine Distributions Among Opinion Variables'}
+# Repeat opinions wrangling for h1n1
+h1n1_opinion <-
+  training %>%
+  select(opinion_h1n1_vacc_effective:opinion_seas_sick_from_vacc, 
+         safe_behaviors, h1n1_vaccine) %>% 
+  mutate(h1n1_vaccine = ifelse(h1n1_vaccine == 1, 'Yes', 'No')) %>%
+  pivot_longer(cols = -h1n1_vaccine, values_drop_na = T) %>%
+  group_by(name, h1n1_vaccine, value) %>%
+  tally()
+
+ggplot(h1n1_opinion, aes(x=value, y=n, fill = h1n1_vaccine)) +
+    facet_wrap(~ name, scales = "free") +
+    geom_bar(position="fill", stat="identity")+
+    ggtitle("H1N1 Vaccine Distributions Among Opinion Variables")+
+    theme(text = element_text(size=12), axis.text.x = element_text(angle=45, hjust=1))
+```
+
 ```{r,fig.height=8, fig.cap='Seasonal Vaccine Rates by Age Group'}
+# This plot works
 vac_plot <-
   training %>%
   mutate(seasonal_vaccine = ifelse(seasonal_vaccine == 1, 'Yes', 'No'),
@@ -228,6 +317,15 @@ vac_plot %>%
 ```
 
 
+```{r}
+vac_plot %>%
+  group_by(doctor_recc_seasonal, seasonal_vaccine) %>%
+  tally() %>%
+  ggplot(aes(x = doctor_recc_seasonal, y = n, fill = seasonal_vaccine)) +
+    geom_bar(position="fill", stat="identity") +
+    ggtitle("Seasonal Vaccine Rates by Doctor Recommendation") +
+    theme(text = element_text(size=12), axis.text.x = element_text(angle=45, hjust=1))
+```
 
 
 
