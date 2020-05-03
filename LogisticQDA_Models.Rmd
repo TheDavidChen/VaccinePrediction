@@ -34,7 +34,7 @@ rm(list = ls())
 library(tidyverse) # Data wrangling, ggplot, etc.
 library(knitr)     # This is to make pretty tables (see kable() )
 library(MASS)      # For QDA function 
-
+library(glmnet)    # Penalized logistic regression  
 
 # Read in training and testing data
 model_test <- 
@@ -87,13 +87,12 @@ seasonal_test$age_group <- as.factor(seasonal_test$age_group)
 ```
 
 
-# Initial testing
+# Full GLM
 
 ```{r echo = F}
 # Fit logistic reg on full data
 Full_glm <- 
-  glm(seasonal_vaccine~.*doctor_recc_seasonal*age_group, 
-      data = seasonal_train, family = binomial)
+  glm(seasonal_vaccine~., data = seasonal_train, family = binomial)
 #summary(Full_glm)
 length(coef(Full_glm))-1
 ```
@@ -116,7 +115,7 @@ glm.pred[glm.probs > .5] <- 1
 table(glm.pred, seasonal_train$seasonal_vaccine)
 ```
 
-Training error rate of 78.2%, compared to naive 52.2%. Not too bad!
+Training error rate of 79.5, compared to naive 52.2%. Not too bad!
 
 ```{r}
 # Proportion of correct responses
@@ -159,35 +158,98 @@ mean(0 == seasonal_test$seasonal_vaccine)
 
 ############################
 
-# Trying out stepwise selection
+# Lasso
 
 ```{r}
-# Both directions
-step_glm <- step(Full_glm, direction = 'forward', trace = FALSE)
-#summary(step_glm)
+# Reference: http://www.sthda.com/english/articles/36-classification-methods-essentials/149-penalized-logistic-regression-essentials-in-r-ridge-lasso-and-elastic-net/
 
-# Count number of predictors in the model
-length(coef(step_glm))-1
+set.seed(14) 
+
+x <- model.matrix(seasonal_vaccine~., seasonal_train)[,-1]
+y <- seasonal_train$seasonal_vaccine
+
+
+cv.lasso <- cv.glmnet(x, y, alpha = 1, family = "binomial")
+
+lasso_model <- glmnet(x, y, alpha = 1, family = "binomial",
+                lambda = cv.lasso$lambda.min)
+
+coef(lasso_model)
 ```
 
-```{r echo = F}
+Training rates - 78.3%. Note that including doctor recommendation and age group did increase training rates to 0.789, but testing error rates were decreased. 
+```{r}
 # Store the predictions on the existing data
-step_probs <- predict(step_glm, type = 'response')
+lasso_train_probs <- predict(lasso_model, newx = x, type = 'response')
 
 # Determine predictions
-step_pred <- rep(0, n_train)
-step_pred[step_probs > .5] <- 1
+lasso_train_pred <- ifelse(lasso_train_probs > 0.5, 1, 0)
 
 # Generate confusion matrix
-table(step_probs, seasonal_train$seasonal_vaccine)
+table(lasso_train_pred, seasonal_train$seasonal_vaccine)
+mean(lasso_train_pred == seasonal_train$seasonal_vaccine)
 ```
 
-Training error rate increases by 0.1%... it seems like our basic stepwise selection won't be as effective.
+
+Test rates - 76.8%. Including interactions decreased to 76.5. 
+```{r}
+# Make predictions on the test data
+x_testing <- model.matrix(seasonal_vaccine~., seasonal_test)[,-1]
+lasso_probs <- predict(lasso_model, newx = x_testing)
+
+lasso_pred <- ifelse(lasso_probs > 0.5, 1, 0)
+
+# Generate confusion matrix
+table(lasso_pred, seasonal_test$seasonal_vaccine)
+
+# Accuracy
+mean(lasso_pred == seasonal_test$seasonal_vaccine)
+```
+
+# Ridge
 
 ```{r}
-# Proportion of correct responses
-mean(step_pred == seasonal_train$seasonal_vaccine)
+set.seed(14) 
+
+cv_ridge <- cv.glmnet(x, y, alpha = 0, family = "binomial")
+
+ridge_model <- glmnet(x, y, alpha = 0, family = "binomial",
+                lambda = cv_ridge$lambda.min)
+
+coef(ridge_model)
 ```
+
+Training rates - 78.3%
+```{r}
+# Store the predictions on the existing data
+ridge_train_probs <- predict(ridge_model, newx = x, type = 'response')
+
+# Determine predictions
+ridge_train_pred <- ifelse(ridge_train_probs > 0.5, 1, 0)
+
+# Generate confusion matrix
+table(ridge_train_pred, seasonal_train$seasonal_vaccine)
+mean(ridge_train_pred == seasonal_train$seasonal_vaccine)
+```
+
+
+Test rates - 76.3%
+```{r}
+# Make predictions on the test data
+x_testing <- model.matrix(seasonal_vaccine~., seasonal_test)[,-1]
+ridge_probs <- predict(ridge_model, newx = x_testing)
+
+ridge_pred <- ifelse(ridge_probs > 0.5, 1, 0)
+
+# Generate confusion matrix
+table(ridge_pred, seasonal_test$seasonal_vaccine)
+
+# Accuracy
+mean(ridge_pred == seasonal_test$seasonal_vaccine)
+```
+
+
+
 
 
 
@@ -205,11 +267,15 @@ qda.fit <- qda(seasonal_vaccine~., data = seasonal_train)
 qda.pred <- predict(qda.fit, seasonal_train)
 qda.class <- qda.pred$class
 
-# Confusion Matrix
-table(qda.class, seasonal_train$seasonal_vaccine)
+#plot(qda.fit)
 ```
 
+
+Applied to training set
 ```{r}
+# Confusion Matrix
+table(qda.class, seasonal_train$seasonal_vaccine)
+
 mean(qda.class == seasonal_train$seasonal_vaccine)
 ```
 
@@ -231,7 +297,122 @@ mean(qda_test_class == seasonal_test$seasonal_vaccine)
 
 
 
+# Appendix
 
+## Full GLM with interactions
+```{r echo = F}
+# Fit logistic reg on full data
+Full_glm <- 
+  glm(seasonal_vaccine~.*doctor_recc_seasonal*age_group, 
+      data = seasonal_train, family = binomial)
+#summary(Full_glm)
+length(coef(Full_glm))-1
+```
+
+
+## Full model - LR - Training error rates
+
+```{r echo = F}
+# Get the number of rows
+n_train <- nrow(seasonal_train)
+
+# Store the predictions on the existing data
+glm.probs <- predict(Full_glm, type = 'response')
+
+# Determine predictions
+glm.pred <- rep(0, n_train)
+glm.pred[glm.probs > .5] <- 1
+
+# Generate confusion matrix
+table(glm.pred, seasonal_train$seasonal_vaccine)
+```
+
+Training error rate of 79.5, compared to naive 52.2%. Not too bad!
+
+```{r}
+# Proportion of correct responses
+mean(glm.pred == seasonal_train$seasonal_vaccine)
+
+# Proportion correct if you just no each time - 52%
+mean(0 == seasonal_train$seasonal_vaccine)
+
+```
+
+## Full model - LR -  testing error rates
+
+
+```{r eval = F}
+# Get the number of rows
+n_test <- nrow(seasonal_test)
+
+# Store the predictions on the existing data
+glm.probs <- predict(Full_glm, newdata = seasonal_test,type = 'response')
+
+# Determine predictions
+glm.pred <- rep(0, n_test)
+glm.pred[glm.probs > .5] <- 1
+
+# Generate confusion matrix
+table(glm.pred, seasonal_test$seasonal_vaccine)
+```
+
+
+Applied to the testing set, the testing error rate only dips slightly to 77.9%. The naive model would have done 52.2%. 
+```{r eval = F}
+# Proportion of correct responses
+mean(glm.pred == seasonal_test$seasonal_vaccine)
+
+# Proportion correct if you just no each time - 52%
+mean(0 == seasonal_test$seasonal_vaccine)
+```
+
+## Lasso with interactions 
+```{r eval=F}
+# Reference: http://www.sthda.com/english/articles/36-classification-methods-essentials/149-penalized-logistic-regression-essentials-in-r-ridge-lasso-and-elastic-net/
+
+set.seed(14) 
+
+x <- model.matrix(seasonal_vaccine~.*doctor_recc_seasonal*age_group, seasonal_train)[,-1]
+y <- seasonal_train$seasonal_vaccine
+
+
+cv.lasso <- cv.glmnet(x, y, alpha = 1, family = "binomial", nfolds = 5)
+
+lasso_model <- glmnet(x, y, alpha = 1, family = "binomial",
+                lambda = cv.lasso$lambda.min)
+
+coef(lasso_model)
+```
+
+Training rates - 78.3%. Note that including doctor recommendation and age group did increase training rates to 0.789, but testing error rates were decreased. 
+```{r eval=F}
+# Store the predictions on the existing data
+lasso_train_probs <- predict(lasso_model, newx = x, type = 'response')
+
+# Determine predictions
+lasso_train_pred <- ifelse(lasso_train_probs > 0.5, 1, 0)
+
+# Generate confusion matrix
+table(lasso_train_pred, seasonal_train$seasonal_vaccine)
+mean(lasso_train_pred == seasonal_train$seasonal_vaccine)
+```
+
+
+Test rates - 76.8%. Including interactions decreased to 76.5. 
+```{r eval=F}
+# Make predictions on the test data
+x_testing <- 
+  model.matrix(seasonal_vaccine~.*doctor_recc_seasonal*age_group, seasonal_test)[,-1]
+lasso_probs <- predict(lasso_model, newx = x_testing)
+
+lasso_pred <- ifelse(lasso_probs > 0.5, 1, 0)
+
+# Generate confusion matrix
+table(lasso_pred, seasonal_test$seasonal_vaccine)
+
+# Accuracy
+mean(lasso_pred == seasonal_test$seasonal_vaccine)
+```
 
 
 
