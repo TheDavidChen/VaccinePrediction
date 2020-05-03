@@ -1,0 +1,108 @@
+---
+title: "SVM"
+author: "Elizabeth Saline"
+date: "5/2/2020"
+output: html_document
+---
+
+```{r warning = F, message = F}
+
+rm(list = ls())
+
+# Load in packages
+library(tidyverse)
+library(knitr)
+library(ISLR)
+library(e1071)
+
+
+# Read in training and testing data
+model_test <- 
+  readRDS("./Data/model_test.RDS") 
+model_train <- 
+  readRDS("./Data/model_train.RDS")
+
+```
+
+## SVM
+
+
+
+```{r}
+#SVM for H1N1
+#SVC
+set.seed(140)
+model_train$h1n1_vaccine <- as.factor(model_train$h1n1_vaccine)
+svc.fit <- svm(h1n1_vaccine~., data=model_train,kernel="linear",cost=0.01)
+summary(svc.fit)
+train.pred <- predict(svc.fit, model_train)
+table(model_train$h1n1_vaccine,train.pred)
+(8605+1549)/11963
+test.pred <- predict(svc.fit, model_test)
+table(model_test$h1n1_vaccine, test.pred)
+(5768+966)/7973
+
+#SVM with radial kernel
+set.seed(140)
+svm.fit <- svm(h1n1_vaccine~.,data=model_train, kernel="radial")
+summary(svm.fit)
+train.pred <-  predict(svm.fit, model_train)
+table(model_train$h1n1_vaccine, train.pred)
+(8644+1513)/11963
+test.pred <- predict(svm.fit, model_test)
+table(model_test$h1n1_vaccine, test.pred)
+(5772+927)/7973
+
+
+#SVM with polynomial kernel
+set.seed(140)
+svm.fit <- svm(h1n1_vaccine ~ ., data = model_train, kernel = "poly", degree = 2)
+summary(svm.fit)
+train.pred <-  predict(svm.fit, model_train)
+table(model_train$h1n1_vaccine, train.pred)
+(8629+1480)/11963
+test.pred <- predict(svm.fit, model_test)
+table(model_test$h1n1_vaccine, test.pred)
+(5773+912)/7973
+
+
+#SVM for Seasonal
+#SVC
+set.seed(140)
+model_train$seasonal_vaccine <- as.factor(model_train$seasonal_vaccine)
+svc.fit <- svm(seasonal_vaccine~., data=model_train,kernel="linear",cost=0.01)
+summary(svc.fit)
+train.pred <- predict(svc.fit, model_train)
+table(model_train$seasonal_vaccine,train.pred)
+(5257+4355)/11963
+test.pred <- predict(svc.fit, model_test)
+table(model_test$seasonal_vaccine, test.pred)
+(3527+2893)/7973
+
+#SVM with radial kernel
+set.seed(140)
+svm.fit <- svm(seasonal_vaccine~.,data=model_train, kernel="radial")
+summary(svm.fit)
+train.pred <-  predict(svm.fit, model_train)
+table(model_train$seasonal_vaccine, train.pred)
+(5323+4550)/11963
+test.pred <- predict(svm.fit, model_test)
+table(model_test$seasonal_vaccine, test.pred)
+(3488+2934)/7973
+
+
+#SVM with polynomial kernel
+set.seed(140)
+svm.fit <- svm(seasonal_vaccine ~ ., data = model_train, kernel = "poly", degree = 2)
+summary(svm.fit)
+train.pred <-  predict(svm.fit, model_train)
+table(model_train$seasonal_vaccine, train.pred)
+(5340+4373)/11963
+test.pred <- predict(svm.fit, model_test)
+table(model_test$seasonal_vaccine, test.pred)
+(3518+2861)/7973
+```
+
+For the H1N1 vaccinations, SVC had a predictive ability of 84.9%, which accounts for a training error rate of 15.1%.  The test error rate was 15.5%, which means that the testing prediction rate was 85.5%.  Radial SVM had a test prediction rate of 84%, giving an error rate of 16%.  The SVM with a polynomial kernel had a test error rate of 16.2%, which is the highest of the three models.  The test prediction rate was 83.2%.
+
+For the seasonal vaccinations, the SVC showed a prediction rate of 80.5%, SVM with radial and polynomial kernels had prediction rates of 80.5% and 80% respectively.  Taken all together, this indicates that SVC predicts both H1N1 and seasonal vaccination behavior best out of the three models done.
