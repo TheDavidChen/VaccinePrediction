@@ -86,7 +86,6 @@ training %>%
     geom_bar()+
     ggtitle("Frequencies of demographic variables in the training dataset")+
     theme(text = element_text(size=12), axis.text.x = element_text(angle=45, hjust=1))
-
 ```
 
 From the plot above, we can see that the distribution of data by age group is not skewed (almost uniform) so we have enough data from each age group. The census_msa plot shows that most of our respondents live in a metropolitan statistical area (MSA) as defined by the US Census, with only about 6000 in Non-MSA.
@@ -176,6 +175,37 @@ model_train = trainingwithoutNA[train_index,]
 model_test =  trainingwithoutNA[-train_index,]
 ```
 
+
+---
+
+Checking relationship predictors have with the response
+
+It seems that those in the older age group tend to get the seasonal vaccine
+```{r,fig.height=8}
+vac_plot <-
+  training %>%
+  mutate(seasonal_vaccine = ifelse(seasonal_vaccine == 1, 'Yes', 'No'),
+         h1n1_vaccine = ifelse(seasonal_vaccine == 1, 'Yes', 'No'))
+
+
+vac_plot %>%
+  group_by(age_group, seasonal_vaccine) %>%
+  tally() %>%
+  ggplot(aes(x = age_group, y = n, fill = seasonal_vaccine)) +
+    geom_bar(position="fill", stat="identity") +
+    ggtitle("Vaccine Rates by Age Group") +
+    theme(text = element_text(size=12), axis.text.x = element_text(angle=45, hjust=1))
+```
+
+
+
+
+
+
+
+
+
+---
 
 ### Below is experimental
 
