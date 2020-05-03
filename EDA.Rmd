@@ -181,7 +181,7 @@ model_test =  trainingwithoutNA[-train_index,]
 Checking relationship predictors have with the response
 
 It seems that those in the older age group tend to get the seasonal vaccine
-```{r,fig.height=8}
+```{r,fig.height=8, fig.cap='Seasonal Vaccine Rates by Age Group'}
 vac_plot <-
   training %>%
   mutate(seasonal_vaccine = ifelse(seasonal_vaccine == 1, 'Yes', 'No'),
@@ -193,7 +193,7 @@ vac_plot %>%
   tally() %>%
   ggplot(aes(x = age_group, y = n, fill = seasonal_vaccine)) +
     geom_bar(position="fill", stat="identity") +
-    ggtitle("Vaccine Rates by Age Group") +
+    ggtitle("Seasonal Vaccine Rates by Age Group") +
     theme(text = element_text(size=12), axis.text.x = element_text(angle=45, hjust=1))
 ```
 
