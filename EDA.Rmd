@@ -5,6 +5,10 @@ date: "4/18/2020"
 output: html_document
 ---
 
+# Data
+
+For this project, we are working with seasonal flu and swine flue (h1n1) vaccination data provided through drivendata.org (link in Appendix). We are interested in creating models to predict seasonal flu and swine flu vaccinations. We are exploring the usefulness of various modeling techniques we have learned throughout the semester in tackling this classification problem. For the purposes of this project, we will only use the training data provided, which consists of 26707 observations of 36 variables. We first load the necessary libraries, data set, and global options.
+
 ```{r warning = F, message = F}
 # Clean up R environment
 rm(list = ls())
@@ -21,8 +25,8 @@ Raw_data <-
            na.strings=c("","NA")) # Account for blanks being NA
 Raw_labels <- 
   read.csv("./Data/training_set_labels.csv", stringsAsFactors=FALSE)
-Raw_test <- 
-  read.csv("./Data/test_set_features.csv", stringsAsFactors=FALSE)
+
+Training_full <- cbind(Raw_data, Raw_labels[2:3])
 
 # Global options
 set.seed(14)
@@ -31,17 +35,9 @@ options(digits=3)     # Set digits to 3 to avoid too many values
 ```
 
 
-# Data Cleaning
+## Exploratory Data Analysis
 
-Join the response variables (in Raw_labels) to the training data (Raw_data)
-```{r}
-# Since the datasets are in the same order, I just cbind() the two, dropping
-#  respondent id in the Raw_labels dataset
-Training_full <- cbind(Raw_data, Raw_labels[2:3])
-```
-
-
-Check the total number of NAs for each row. Note that `health_insurance`, `employment_industry`, and `employment_occupation` have a LOT of NAs.  
+Before diving into the models, we conducted exploratory data analysis to understand our data better. We checked all variables in the dataset for missing data. 
 
 ```{r}
 # Total number of NAs
@@ -51,7 +47,7 @@ sapply(Training_full, function(x) sum(is.na(x)))
 #kable(sapply(wiki, function(x) sum(is.na(x))), col.names = 'NA Values')
 ```
 
-Since `health_insurance`, `employment_industry`, and `employment_occupation` have almost half data missing, it might make sense to not include these 3 variables as our potential predictors.
+From the missing data counts above, we can see that `health_insurance`, `employment_industry`, and `employment_occupation` have a LOT of NAs. Since these 3 variables have almost half data missing, they are probably not going to be useful predictors for our models. Therefore, it might make sense to not include these 3 variables as our potential predictors.
 
 ```{r}
 # Remove the 3 variables with almost half missing data
@@ -62,24 +58,35 @@ training <-
 
 ```
 
-# General EDA
-Basic exploration of the data. 
+Next, let's look at our response variables of interest. Each of the 2 response variables is binary with 0 indicating no vaccination versus 1 indicating vaccination.
 
-It seems like roughly half of the training observations were vaccinated for the flu, while only ~21% were vaccinated for the h1n1 
 ```{r}
 # Examine how may of the total observations were vaccinated
-Raw_labels %>%
+training %>%
   summarize(seasonal_vaccine = sum(seasonal_vaccine), 
             h1n1_vaccinated = sum(h1n1_vaccine), 
             n = n())
 ```
 
-In addition to the 2 response variables, we also have 32 potential predictors (not including respondent IDs and the 3 variables from above with huge number of NAs). Out of these, 12 are demographic variables. Let's first look at these demographic variables.
+We found that 46.6% of respondents were vaccinated for the flu, while only 21.2% were vaccinated for h1n1. Let's see what the relationship between the 2 vaccinations look like.
 
-```{r,fig.height=8}
+```{r}
+# Cross-tabs of the 2 vaccines
+training %>%
+  group_by(seasonal_vaccine)%>%
+  summarize(h1n1_vaccinated = sum(h1n1_vaccine), 
+            n = n(),
+            proportion=h1n1_vaccinated/n)
+```
+
+From the output above, we can see that out of respondents who had vaccinated for seasonal flu 37.77% also vaccinated for h1n1. But for respondents who had not vaccinated for seasonal flu, only 6.85% vaccinated for h1n1. This shows that the 2 vaccinations are related to each other. People seem to be more likely to get h1n1 vaccine if they get seasonal flu vaccine as well.
+
+In addition to the 2 response variables, we also have 32 potential predictors (not including respondent IDs and the 3 variables from above with huge number of NAs). Out of these, 15 are demographic variables. Let's first look at these demographic variables.
+
+```{r,fig.align = 'center', fig.pos = '!htp', out.extra = '', out.height='50%', out.width = '60%',fig.cap = ‘Frequencies of demographic variables'}
 
 training %>%
-  dplyr::select(age_group:household_children)%>%
+  dplyr::select(age_group:household_children,health_worker,child_under_6_months,chronic_med_condition)%>%
   gather() %>% 
   ggplot(aes(value)) +
     facet_wrap(~ key, scales = "free") +
@@ -88,28 +95,38 @@ training %>%
     theme(text = element_text(size=12), axis.text.x = element_text(angle=45, hjust=1))
 ```
 
-From the plot above, we can see that the distribution of data by age group is not skewed (almost uniform) so we have enough data from each age group. The census_msa plot shows that most of our respondents live in a metropolitan statistical area (MSA) as defined by the US Census, with only about 6000 in Non-MSA.
+- From the plot above, we can see that the distribution of data by age group is not skewed (almost uniform) so we have enough data from each age group. 
 
-Based on the education plot, it looks like most of our respondents have at least some college education. We do have 1407 missing education values though.
+- The census_msa plot shows that most of our respondents live in a metropolitan statistical area (MSA) as defined by the US Census, with only about 6000 in Non-MSA.
 
-We can also see that most of our respondents are either employed or not in the labor force. Respondents not in the labor force are not employed and have stopped looking for work. Only a small number of respondents are unemployed and looking for a job. We also have 1463 missing values here.
+- From the chronic_med_condition plot, we can see that most participants do not have chronic conditions but there are around 5000 participants who do have such conditions.
 
-Even though our data doesn't specify the name of the geographical region, it looks like we have decent representation from all 10 geographical regions.
+- Based on the education plot, it looks like most of our respondents have at least some college education. We do have 1407 missing education values though.
 
-The household variables suggest that most of the respondents live in a household either by themselves or with one other adult. Most of the respondents also have no children in the household. It might make sense to combine household_children and household_adults to create the total household size.
+- We can also see that most of our respondents are either employed or not in the labor force. Respondents not in the labor force are not employed and have stopped looking for work. Only a small number of respondents are unemployed and looking for a job. We also have 1463 missing values here.
 
-The income data suggests that most respondents are above poverty with a sizeable chunk making over 75,000 USD per year. However, we have 4423 missing values, which may be a sizeable chunk for our prediction purposes.
+- The health_worker plot shows that overwhelming majority of respondents in our sample do not work in healthcare.
 
-The respondents are about equally distributed based on marital status. Our sample is also overwhelmingly white with very few participants from other races. As such, our findings may not be applicable to general population.
+- Even though our data doesn't specify the name of the geographical region, it looks like we have decent representation from all 10 geographical regions.
 
-In addition to the above information, the plots also show that most of our respondents own their home. We can also see that we have more female respondents than male.
+- The household variables suggest that most of the respondents live in a household either by themselves or with one other adult. Most of the respondents also have no children in the household with very few respondents having an infant under 6 months of age.
+
+- The income data suggests that most respondents are above poverty but make less than 75,000 USD per year. There are few participants who are below poverty. We also have 4423 missing values, which may be a big chunk for our modeling.
+
+- The respondents are about equally distributed based on marital status. 
+
+- Our sample is also overwhelmingly white with very few participants from other races. As such, our findings may not be applicable to general population.
+
+- In addition to the above information, the plots also show that most of our respondents own their home. We can also see that we have more female respondents than male.
+
+Overall, it looks like our sample maybe fairly representative of the US. However, we should be cautious about overly generalizing our models especially given the high proportion of White respondents compared non-white.
 
 Next, we can look at the other potential predictors and their distributions.
 
-```{r,fig.height=8, fig.width=16}
+```{r,fig.align = 'center', fig.pos = '!htp', out.extra = '', out.height='50%', out.width = '60%',fig.cap = ‘Frequencies of non-demographic variables'}
 
 training %>%
-  dplyr::select(h1n1_concern:opinion_seas_sick_from_vacc)%>%
+  dplyr::select(h1n1_concern:opinion_seas_sick_from_vacc,-health_worker,-child_under_6_months,-chronic_med_condition)%>%
   gather() %>% 
   ggplot(aes(value)) +
     facet_wrap(~ key, scales = "free") +
@@ -119,7 +136,17 @@ training %>%
 
 ```
 
-Let's also look at the correlation matrix for these 20 non-demographic predictors.
+From the frequency plots above, we can see that some of the behavioral responses like using antiviral meds and face masks very low adherence but other behavioral responses like touching avoiding contacts with others, avoiding touching face and washing hands have pretty high adherence.
+
+From the doctor recommendation variables, we can see that the respondents' doctors were not very likely to recommend either seasonal or h1n1 vaccines. However, they were likely to recommend seasonal vaccine more than h1n1 vaccine. These rates look similar to vaccination rates for the 2 vaccines so they may be useful predictors.
+
+It looks like participants, in general, had some knowledge about h1n1 but they were only moderately concerned. They also were more likely to consider h1n1 risk to be lower. More respondents thought the seasonal flu risks were higher than h1n1 risk.
+
+From the opinion related plots, we see that most participants considered both seasonal and h1n1 vaccines to be effective.
+
+Overall, almost all of these potential predictors seem to be useful in capturing some aspect of vaccination behaviors.
+
+Let's now look at the correlation matrix for our numeric predictors and see how they are related to each other and the vaccination rates.
 
 ```{r,fig.height=8, fig.width=16}
 
@@ -129,7 +156,7 @@ Let's also look at the correlation matrix for these 20 non-demographic predictor
 
 nondemocorr <- 
   training %>%
-  dplyr::select(h1n1_concern:opinion_seas_sick_from_vacc) %>%
+  dplyr::select(h1n1_concern:opinion_seas_sick_from_vacc, seasonal_vaccine, h1n1_vaccine) %>%
   as.matrix() %>%
   cor(method=c("spearman"), use="pairwise.complete.obs")
 
@@ -138,10 +165,13 @@ corrplot(nondemocorr, method="number", number.cex = .7)
 ```
 
 
-It looks like behavioral variables seem to be positively correlated with each other. It might be possible to reduce the number of variables if we combine the behavioral variables together such that this new variable will indicate the number of safe behaviors a respondent adhered to. A "behavioral" variable could just add variables from behavioral_antiviral_meds to behavioral_touch_face.
+It looks like behavioral variables seem to be positively correlated with each other. It might be possible to reduce the number of variables if we combine the behavioral variables together such that this new variable will indicate the number of safe behaviors a respondent adhered to. A "safe_behaviors" variable could just add variables from behavioral_antiviral_meds to behavioral_touch_face.
 
-Similarly, the opinion variables also seem to go together. We can potentially combine these as well. Also, doctor_recc_h1n1 and doctor_recc_seasonal, which represent whether the respondent's doctor recommended h1n1 or seasonal vaccine, also seem to be strongly positively correlated.
+Also, doctor_recc_h1n1 and doctor_recc_seasonal, which represent whether the respondent's doctor recommended h1n1 or seasonal vaccine, also seem to be strongly positively correlated. This probably indicates our earlier finding that respondents who get seasonal flu vaccines are more likely to get vaccinated for h1n1 as well.
 
+Opinion variables also seem to be correlated with each other but since they touch on different aspects of the two diseases (like risks, vaccine effectiveness, etc), it doesn't make sense to combine them directly. We should consider including them as they are.
+
+Below, we create the new variable combining the behavior variables. This new variable represents the total number of healthy behaviors that the respondents adhered to (in relation to flu-like diseases).
 
 ```{r}
 training %>%
@@ -152,7 +182,7 @@ training %>%
 
 newvariable1 <- training %>%
   dplyr::select(behavioral_antiviral_meds:behavioral_touch_face) %>%
-  mutate(safe_behaviors=rowSums(.,na.rm=TRUE))%>%
+  mutate(safe_behaviors=rowSums(.,na.rm=FALSE))%>%
   dplyr::select(-behavioral_antiviral_meds:-behavioral_touch_face)
 
 training$safe_behaviors <- newvariable1$safe_behaviors
@@ -160,7 +190,7 @@ training$safe_behaviors <- newvariable1$safe_behaviors
 training <- training %>% select(-behavioral_antiviral_meds:-behavioral_touch_face)
 ```
 
-It looks like this newly created variable is pretty normally distributed. We have to note that this new variable will use 0 instead of NA. 561 rows would be removed if we use na.rm=FALSE.
+It looks like this newly created variable is pretty normally distributed.
 
 Now we can split the dataset for modeling purposes.
 
