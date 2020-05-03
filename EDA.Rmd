@@ -208,8 +208,3 @@ table(km.clusters,hc.clusters) #There is a good level of overlap in the way the 
 
 ```
 Unfortunitally, clustering does not appear to work with this dataset well.  Splitting the data into 4 clusters (the number of levels the outcome variable has) does not cluster participants well according to whether or not they got either of the vaccines.
-
-###SVM
-```{r}
- 
-```
