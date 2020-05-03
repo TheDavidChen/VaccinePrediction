@@ -79,7 +79,7 @@ In addition to the 2 response variables, we also have 32 potential predictors (n
 ```{r,fig.height=8}
 
 training %>%
-  select(age_group:household_children)%>%
+  dplyr::select(age_group:household_children)%>%
   gather() %>% 
   ggplot(aes(value)) +
     facet_wrap(~ key, scales = "free") +
@@ -110,7 +110,7 @@ Next, we can look at the other potential predictors and their distributions.
 ```{r,fig.height=8, fig.width=16}
 
 training %>%
-  select(h1n1_concern:opinion_seas_sick_from_vacc)%>%
+  dplyr::select(h1n1_concern:opinion_seas_sick_from_vacc)%>%
   gather() %>% 
   ggplot(aes(value)) +
     facet_wrap(~ key, scales = "free") +
@@ -124,9 +124,15 @@ Let's also look at the correlation matrix for these 20 non-demographic predictor
 
 ```{r,fig.height=8, fig.width=16}
 
+#nondemocorr <- 
+#  cor(as.matrix(dplyr::select(training,h1n1_concern:opinion_seas_sick_from_vacc)), 
+#      method=c("spearman"), use="pairwise.complete.obs")
+
 nondemocorr <- 
-  cor(as.matrix(select(training,h1n1_concern:opinion_seas_sick_from_vacc)), 
-      method=c("spearman"), use="pairwise.complete.obs")
+  training %>%
+  dplyr::select(h1n1_concern:opinion_seas_sick_from_vacc) %>%
+  as.matrix() %>%
+  cor(method=c("spearman"), use="pairwise.complete.obs")
 
 corrplot(nondemocorr, method="number", number.cex = .7)
 
@@ -140,15 +146,15 @@ Similarly, the opinion variables also seem to go together. We can potentially co
 
 ```{r}
 training %>%
-  select(behavioral_antiviral_meds:behavioral_touch_face) %>%
+  dplyr::select(behavioral_antiviral_meds:behavioral_touch_face) %>%
   mutate(safe_behaviors=rowSums(.,na.rm=FALSE))%>%
   ggplot(aes(x=safe_behaviors))+
   geom_bar()
 
 newvariable1 <- training %>%
-  select(behavioral_antiviral_meds:behavioral_touch_face) %>%
+  dplyr::select(behavioral_antiviral_meds:behavioral_touch_face) %>%
   mutate(safe_behaviors=rowSums(.,na.rm=TRUE))%>%
-  select(-behavioral_antiviral_meds:-behavioral_touch_face)
+  dplyr::select(-behavioral_antiviral_meds:-behavioral_touch_face)
 
 training$safe_behaviors <- newvariable1$safe_behaviors
 
