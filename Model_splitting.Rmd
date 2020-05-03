@@ -56,7 +56,7 @@ training <-
 newvariable1 <- 
   training %>%
   select(behavioral_antiviral_meds:behavioral_touch_face) %>%
-  mutate(safe_behaviors=rowSums(.,na.rm=TRUE))%>%
+  mutate(safe_behaviors=rowSums(.,na.rm=FALSE))%>%
   select(-behavioral_antiviral_meds:-behavioral_touch_face)
 
 # Add the variable to the full set
