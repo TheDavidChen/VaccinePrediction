@@ -53,11 +53,37 @@ options(digits=3)     # Set digits to 3 to avoid too many values
 ```{r}
 seasonal_train <- 
   model_train %>%
-  select(-h1n1_vaccine, -respondent_id)
+  dplyr::select(-h1n1_vaccine, -respondent_id)
 
 seasonal_test <-
   model_test %>%
-  select(-h1n1_vaccine, -respondent_id)
+  dplyr::select(-h1n1_vaccine, -respondent_id)
+
+
+# Relevel the age_group and income poverty. Age group is already in correct order
+seasonal_train$income_poverty <- 
+  factor(seasonal_train$income_poverty, 
+         levels = c("Below Poverty", "<= $75,000, Above Poverty", "> $75,000"))
+
+seasonal_train$education <- 
+  factor(seasonal_train$education, 
+         levels = c("< 12 Years", "12 Years", "Some College", "College Graduate"))
+
+
+seasonal_train$age_group <- as.factor(seasonal_train$age_group)
+
+
+# Repeat the factorization for the test set
+seasonal_test$income_poverty <- 
+  factor(seasonal_test$income_poverty, 
+         levels = c("Below Poverty", "<= $75,000, Above Poverty", "> $75,000"))
+
+seasonal_test$education <- 
+  factor(seasonal_test$education, 
+         levels = c("< 12 Years", "12 Years", "Some College", "College Graduate"))
+
+seasonal_test$age_group <- as.factor(seasonal_test$age_group)
+
 ```
 
 
@@ -66,8 +92,10 @@ seasonal_test <-
 ```{r echo = F}
 # Fit logistic reg on full data
 Full_glm <- 
-  glm(seasonal_vaccine~., data = seasonal_train, family = binomial)
-summary(Full_glm)
+  glm(seasonal_vaccine~.*doctor_recc_seasonal*age_group, 
+      data = seasonal_train, family = binomial)
+#summary(Full_glm)
+length(coef(Full_glm))-1
 ```
 
 
@@ -135,8 +163,11 @@ mean(0 == seasonal_test$seasonal_vaccine)
 
 ```{r}
 # Both directions
-step_glm <- step(Full_glm, trace = FALSE)
-summary(step_glm)
+step_glm <- step(Full_glm, direction = 'forward', trace = FALSE)
+#summary(step_glm)
+
+# Count number of predictors in the model
+length(coef(step_glm))-1
 ```
 
 ```{r echo = F}
