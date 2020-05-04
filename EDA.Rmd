@@ -351,24 +351,44 @@ summary(glm(h1n1_vaccine~safe_behaviors,data=training,family="binomial"))
 ### Clustering
 
 ```{r}
-#For clustering, everything has to be numeric. I also created a column to combine the 2x2 vaccine outcome conditions was just one variable.
-All_numeric <- 
-  read.csv("./Data/All Numbers.csv", stringsAsFactors=FALSE,
-           na.strings=c("","NA"))
+library(cluster)
 
-Num.withoutNA = na.omit(All_numeric)
+clust_train <- model_train
+clust_train[,c("h1n1_vaccine","seasonal_vaccine")] <- list(NULL)
+clust_train[,c("age_group","education","race","sex","income_poverty","marital_status","rent_or_own","employment_status","hhs_geo_region","census_msa")] <- lapply(clust_train[,c("age_group","education","race","sex","income_poverty","marital_status","rent_or_own","employment_status","hhs_geo_region","census_msa")],as.factor)
+clust_train[,c(4, 5, 6, 7, 8)] <- lapply(clust_train[,c(4, 5, 6, 7, 8)],as.factor)
+```
 
+```{r}
 set.seed(120) #Hierarchical clustering
-hc.out <- hclust(dist(Num.withoutNA), method="average")
-plot(hc.out)
-hc.clusters <- cutree(hc.out,4) #Since there's 4 vaccine options, this seemed like a logical cut
-table(hc.clusters, Num.withoutNA$vaccine) #Clustering doesn't seem to give us any meaningful division by which vaccine participants either did or did not get.
-set.seed(130) #K-means clustering
-num.km <- within(Num.withoutNA, rm(vaccine))
-km.out=kmeans(num.km,4,nstart=20)
-km.clusters=km.out$cluster
-table(km.clusters)
-table(km.clusters,hc.clusters) #There is a good level of overlap in the way the two methods clustered, for example Cluster 2 with K-means is almost completely the same as Cluster 4 from the Hierarchical clustering.
+gower.dist <- daisy(clust_train,metric=c("gower")) #because some variables are categorical
+
+hc.avg <- hclust((gower.dist), method="average")
+hc.clusters <- cutree(hc.avg,2)
+table(hc.clusters, model_train$h1n1_vaccine)
+table(hc.clusters, model_train$seasonal_vaccine)
+hc.clusters <- cutree(hc.avg,6)
+table(hc.clusters, clust_train$age_group)
+
+hc.com <- hclust((gower.dist), method="complete")
+hc.clusters <- cutree(hc.com,2)
+table(hc.clusters, model_train$h1n1_vaccine)
+table(hc.clusters, model_train$seasonal_vaccine)
+table(hc.clusters, clust_train$doctor_recc_h1n1)
+table(hc.clusters, clust_train$doctor_recc_seasonal)
+hc.clusters <- cutree(hc.com,6)
+table(hc.clusters, clust_train$age_group)
+table(hc.clusters, clust_train$race)
+
+hc.sig <- hclust((gower.dist), method="single")
+hc.clusters <- cutree(hc.sig,2)
+table(hc.clusters, model_train$h1n1_vaccine)
+table(hc.clusters, model_train$seasonal_vaccine)
+hc.clusters <- cutree(hc.sig,6)
+table(hc.clusters, clust_train$age_group)
+
 
 ```
-Unfortunitally, clustering does not appear to work with this dataset well.  Splitting the data into 4 clusters (the number of levels the outcome variable has) does not cluster participants well according to whether or not they got either of the vaccines.
+
+
+Unfortunitally, clustering does not appear to work with this dataset well.  Clustering does not appear to group by either vaccine, or other variables used.
