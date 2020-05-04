@@ -263,7 +263,7 @@ It looks like this newly created variable is pretty normally distributed. We rem
 
 For the purposes of this project, we are evaluating multiple classification methods that we learned during the last semester. There are many instances where missing data can impact a model's performance. This is especially an issue if there is missing data for a large chunk of observations. We already decided to not include 3 variables that had almost half missing data rate. Even without these variables, we needed to make a decision about the rest of missing data. It might be ideal to use a strong imputation method like multiple imputation to get rid of missingness. However, since this was beyond the scope of this project, we decided to simply omit missing data from our analysis. Removing the remainder missing data still resulted in a sample size of 19642 which should have enough power for our modeling purposes.
 
-After removing the missing data, we can split the dataset into training and test sets. We will usee this training set to train all our models and evaluate their performances on the test set. We do a 60-40 stratified split such that 60% of the overall data are in the training set while also making sure that each of the training and test set have equal representation of our 2 response variables.
+To get the dataset ready for modeling, we can split the dataset into training and test sets. We will usee this training set to train all our models and evaluate their performances on the test set. We do a 60-40 stratified split such that 60% of the overall data are in the training set while also making sure that each of the training and test set have equal representation of our 2 response variables.
 
 ```{r}
 # Remove all remaining NAs
