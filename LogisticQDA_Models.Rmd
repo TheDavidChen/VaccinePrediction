@@ -5,28 +5,7 @@ date: "5/2/2020"
 output: html_document
 ---
 
-
-# Note: This is a huge work in process. Currently we are just trying basic ideas. 
-
-
-## Work I still need to get done:
-
-1. Including interactions
-2. Best subset selection
-
-
-
-
----
-
-
-
-
-Here we will implement the Logistic Regression / QDA Model
-
-First import all the necessary data and packages
-
-```{r warning = F, message = F}
+```{r echo = F, warning = F, message = F}
 # Clean up R environment
 rm(list = ls())
 
@@ -49,8 +28,20 @@ options(digits=3)     # Set digits to 3 to avoid too many values
 ```
 
 
-# Seasonal Only
-```{r}
+
+# Introduction to LR
+
+We begin by conducting a logistic regression model for seasonal vaccine. Recall that since our response is binary (either they got the vaccine or they didn't), a logistic model would allow us to calculate the probability they got the vaccine given their specified attributes. 
+
+Given the nature of the data, as shown in the EDA, all the predictors will be used in our model (with `safe_behavior` instead of the 5 individual behavior variables). From the correlation plot, we observe that there does not appear to be any highly correlated variables, thus there is no fear of multicollinearity. Additionally, since the predictors are either nominal (male or female), ordinal (level of education), or on a scale (opinions), there is no fear of outliers. Since the sample size is large as well, we proceed onwards comfortably. 
+
+
+# Analysis
+
+```{r echo = F}
+# Restrict the data so that it's directly relevant to the seasonal vaccine 
+
+
 seasonal_train <- 
   model_train %>%
   dplyr::select(-h1n1_vaccine, -respondent_id)
@@ -87,20 +78,29 @@ seasonal_test$age_group <- as.factor(seasonal_test$age_group)
 ```
 
 
-# Full GLM
+# Full Logistic Regression Model for Seasonal
+
+To begin, we consider all the predictors (excluding `h1n1_vaccine`) in the model for `seasonal_vaccine`. While we attempted to include interactions for `age_group` and the doctor recommendation variables, the overall test accuracy decreased, so they were not included. Since including all pairwise interactions would have resulted in thousands of predictors, they were not considered. 
+
+Excluding the intercept, we observe a total of 44 predictors, 24 of which are significant at the 0.05 level of significance.  
+
+Without removing any of the model predictors, we observe the following confusion matrix on the training data: 
+
+
+
+
 
 ```{r echo = F}
 # Fit logistic reg on full data
 Full_glm <- 
   glm(seasonal_vaccine~., data = seasonal_train, family = binomial)
 #summary(Full_glm)
-length(coef(Full_glm))-1
+#length(coef(Full_glm)) # Check the number of coefficients
 ```
 
+```{r fig.cap = 'Seasonal Vaccine - Training Data Logistic Regression', echo = F}
+# Full GLM Model training error rates
 
-## Full model - LR - Training error rates
-
-```{r echo = F}
 # Get the number of rows
 n_train <- nrow(seasonal_train)
 
@@ -115,21 +115,23 @@ glm.pred[glm.probs > .5] <- 1
 table(glm.pred, seasonal_train$seasonal_vaccine)
 ```
 
-Training error rate of 79.5, compared to naive 52.2%. Not too bad!
+This model has a training accuracy of 78.7%, not bad! Thus, we proceed onwards to check the accuracy on new data - the testing set. Applied to the testing data, we observe the following table: 
 
-```{r}
+
+```{r echo=F,eval=F}
 # Proportion of correct responses
 mean(glm.pred == seasonal_train$seasonal_vaccine)
 
 # Proportion correct if you just no each time - 52%
 mean(0 == seasonal_train$seasonal_vaccine)
-
 ```
 
-## Full model - LR -  testing error rates
 
 
 ```{r echo = F}
+
+############# Full GLM model - test error rates
+
 # Get the number of rows
 n_test <- nrow(seasonal_test)
 
@@ -145,8 +147,10 @@ table(glm.pred, seasonal_test$seasonal_vaccine)
 ```
 
 
-Applied to the testing set, the testing error rate only dips slightly to 77.9%. The naive model would have done 52.2%. 
-```{r}
+Applied to the testing set, the accuracy dips slightly to 77.8%. While this model seems to have more false negatives than false positives, the overall accuracy seems fairly good. Nevertheless, we proceed onwards to check for a potentially more effective model. 
+
+
+```{r echo=F,eval=F}
 # Proportion of correct responses
 mean(glm.pred == seasonal_test$seasonal_vaccine)
 
@@ -154,11 +158,12 @@ mean(glm.pred == seasonal_test$seasonal_vaccine)
 mean(0 == seasonal_test$seasonal_vaccine)
 ```
 
+## Lasso for Seasonal 
 
 
-############################
 
-# Lasso
+
+
 
 ```{r}
 # Reference: http://www.sthda.com/english/articles/36-classification-methods-essentials/149-penalized-logistic-regression-essentials-in-r-ridge-lasso-and-elastic-net/
