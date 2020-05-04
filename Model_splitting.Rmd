@@ -48,16 +48,16 @@ Training_full <-
 # Remove the 3 variables with almost half missing data
 training <- 
   Training_full %>% 
-  select(-health_insurance,-employment_industry,-employment_occupation) 
+  dplyr::select(-health_insurance,-employment_industry,-employment_occupation) 
 ```
 
 ```{r}
 # Create safe_behaviors which is a sum of all the behavioral variables
 newvariable1 <- 
   training %>%
-  select(behavioral_antiviral_meds:behavioral_touch_face) %>%
+  dplyr::select(behavioral_antiviral_meds:behavioral_touch_face) %>%
   mutate(safe_behaviors=rowSums(.,na.rm=FALSE))%>%
-  select(-behavioral_antiviral_meds:-behavioral_touch_face)
+  dplyr::select(-behavioral_antiviral_meds:-behavioral_touch_face)
 
 # Add the variable to the full set
 training$safe_behaviors <- newvariable1$safe_behaviors
@@ -65,7 +65,7 @@ training$safe_behaviors <- newvariable1$safe_behaviors
 # Remove original behavioral variables
 training <- 
   training %>% 
-  select(-behavioral_antiviral_meds:-behavioral_touch_face)
+  dplyr::select(-behavioral_antiviral_meds:-behavioral_touch_face)
 ```
 
 ```{r}
