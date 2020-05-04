@@ -445,3 +445,148 @@ Looking back at the tree-based methods, we can see that random forest and boosti
 
 
 
+
+
+
+# Appendix
+
+## Full GLM with interactions
+```{r echo = F}
+# Fit logistic reg on full data
+Full_glm <- 
+  glm(seasonal_vaccine~.*doctor_recc_seasonal*age_group, 
+      data = seasonal_train, family = binomial)
+#summary(Full_glm)
+length(coef(Full_glm))-1
+```
+
+
+## Full model - LR - Training error rates
+
+```{r echo = F}
+# Get the number of rows
+n_train <- nrow(seasonal_train)
+
+# Store the predictions on the existing data
+glm.probs <- predict(Full_glm, type = 'response')
+
+# Determine predictions
+glm.pred <- rep(0, n_train)
+glm.pred[glm.probs > .5] <- 1
+
+# Generate confusion matrix
+table(glm.pred, seasonal_train$seasonal_vaccine)
+```
+
+Training error rate of 79.5, compared to naive 52.2%. Not too bad!
+
+```{r}
+# Proportion of correct responses
+mean(glm.pred == seasonal_train$seasonal_vaccine)
+
+# Proportion correct if you just no each time - 52%
+mean(0 == seasonal_train$seasonal_vaccine)
+
+```
+
+## Full model - LR -  testing error rates
+
+
+```{r eval = F}
+# Get the number of rows
+n_test <- nrow(seasonal_test)
+
+# Store the predictions on the existing data
+glm.probs <- predict(Full_glm, newdata = seasonal_test,type = 'response')
+
+# Determine predictions
+glm.pred <- rep(0, n_test)
+glm.pred[glm.probs > .5] <- 1
+
+# Generate confusion matrix
+table(glm.pred, seasonal_test$seasonal_vaccine)
+```
+
+
+Applied to the testing set, the testing error rate only dips slightly to 77.9%. The naive model would have done 52.2%. 
+```{r eval = F}
+# Proportion of correct responses
+mean(glm.pred == seasonal_test$seasonal_vaccine)
+
+# Proportion correct if you just no each time - 52%
+mean(0 == seasonal_test$seasonal_vaccine)
+```
+
+## Lasso with interactions 
+```{r eval=F}
+# Reference: http://www.sthda.com/english/articles/36-classification-methods-essentials/149-penalized-logistic-regression-essentials-in-r-ridge-lasso-and-elastic-net/
+
+set.seed(14) 
+
+x <- model.matrix(seasonal_vaccine~.*doctor_recc_seasonal*age_group, seasonal_train)[,-1]
+y <- seasonal_train$seasonal_vaccine
+
+
+cv.lasso <- cv.glmnet(x, y, alpha = 1, family = "binomial", nfolds = 5)
+
+lasso_model <- glmnet(x, y, alpha = 1, family = "binomial",
+                lambda = cv.lasso$lambda.min)
+
+coef(lasso_model)
+```
+
+Training rates - 78.3%. Note that including doctor recommendation and age group did increase training rates to 0.789, but testing error rates were decreased. 
+```{r eval=F}
+# Store the predictions on the existing data
+lasso_train_probs <- predict(lasso_model, newx = x, type = 'response')
+
+# Determine predictions
+lasso_train_pred <- ifelse(lasso_train_probs > 0.5, 1, 0)
+
+# Generate confusion matrix
+table(lasso_train_pred, seasonal_train$seasonal_vaccine)
+mean(lasso_train_pred == seasonal_train$seasonal_vaccine)
+```
+
+
+Test rates - 76.8%. Including interactions decreased to 76.5. 
+```{r eval=F}
+# Make predictions on the test data
+x_testing <- 
+  model.matrix(seasonal_vaccine~.*doctor_recc_seasonal*age_group, seasonal_test)[,-1]
+lasso_probs <- predict(lasso_model, newx = x_testing)
+
+lasso_pred <- ifelse(lasso_probs > 0.5, 1, 0)
+
+# Generate confusion matrix
+table(lasso_pred, seasonal_test$seasonal_vaccine)
+
+# Accuracy
+mean(lasso_pred == seasonal_test$seasonal_vaccine)
+```
+
+
+
+
+```{r}
+# Important predictors from Bagging for seasonal flu
+varImpPlot(bag_seasonal)
+
+# Important predictors from Random Forest for seasonal flu
+varImpPlot(rf_seasonal)
+
+# Important predictors from GBM for seasonal flu
+summary(boost_seasonal)
+
+# Important predictors from Bagging for h1n1 flu
+varImpPlot(bag_h1n1)
+
+# Important predictors from Random Forest for h1n1 flu
+varImpPlot(rf_h1n1)
+
+# Important predictors from GBM for h1n1 flu
+summary(boost_h1n1)
+```
+
+
+
