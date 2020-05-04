@@ -37,6 +37,11 @@ This data for this project comes from a contest hosted by DrivenData.  The goal 
 ## Splitting into training/testing
 
 
+## Naive Model 
+
+
+
+
 ## Model 1 - Logistic / QDA
 
 + Mention how the model works, why we picked the model
