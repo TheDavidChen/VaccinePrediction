@@ -5,6 +5,20 @@ date: "5/2/2020"
 output: html_document
 ---
 
+Notes while compiling everything together:
+
+For output that has a table, I commented '# output' on the top of the code chunk.
+
+Those that have '# output - Appendix' are self explanatory.
+
+If possible, we should check differen't predicted probability cutoffs for the logistic regression for the H1n1_vaccine. It seems like shifting away from 0.5 and going lower might help it.
+
+Lastly, I was pretty inconsistent with ordering the analysis for the confusion matrices. Please feel free to use whatever order is most consistent with everyone else. Sorry. 
+
+
+---
+
+
 ```{r echo = F, warning = F, message = F}
 # Clean up R environment
 rm(list = ls())
