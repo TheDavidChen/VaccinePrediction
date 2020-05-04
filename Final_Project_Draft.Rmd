@@ -277,7 +277,7 @@ model_test =  trainingwithoutNA[-train_index,]
 
 Now that we have our training and test set, we make sure our categorical variables are correctly formatted as factors. 
 
-```{r echo = F}
+```{r}
 # Relevel the age_group and income poverty. Age group is already in correct order
 model_train$income_poverty <- 
   factor(model_train$income_poverty, 
@@ -318,7 +318,7 @@ model_test <- model_test %>%
 
 We also divide our training set into one dataset for seasonal vaccine prediction and another dataset for h1n1 vaccine prediction.
 
-```{r echo = F}
+```{r}
 # Restrict the data so that it's directly relevant to the seasonal vaccine or the h1n1 vaccine
 seasonal_train <- 
   model_train %>%
@@ -358,10 +358,7 @@ Excluding the intercept, we observe a total of 44 predictors, 24 of which are si
 For predictions, we will consider the standard cutoff of 0.5. Without removing any of the model predictors, we observe the following confusion matrix for the training data: 
 
 
-```{r echo = F}
-# output - Appendix?????
-
-
+```{r}
 # Fit logistic reg on full data
 Full_glm <- 
   glm(seasonal_vaccine~., data = seasonal_train, family = binomial)
@@ -370,9 +367,7 @@ summary(Full_glm)
 #length(coef(Full_glm)) # Check the number of coefficients
 ```
 
-```{r fig.cap = 'Seasonal Vaccine - Training Data Logistic Regression', echo = F}
-# output
-
+```{r fig.cap = 'Seasonal Vaccine - Training Data Logistic Regression'}
 # Full GLM Model training error rates
 
 # Get the number of rows
@@ -390,7 +385,7 @@ table(glm.pred, seasonal_train$seasonal_vaccine)
 ```
 
 
-```{r echo=F,eval=F}
+```{r}
 # Proportion of correct responses
 mean(glm.pred == seasonal_train$seasonal_vaccine)
 
@@ -402,11 +397,7 @@ This model has a training accuracy of 78.7%, not bad! Thus, we proceed onwards t
 
 ### Full logistic regression model performance on test set for seasonal flu
 
-```{r echo = F}
-# output
-
-############# Full GLM model - test error rates
-
+```{r}
 # Get the number of rows
 n_test <- nrow(seasonal_test)
 
@@ -425,7 +416,7 @@ table(glm.pred, seasonal_test$seasonal_vaccine)
 
 
 
-```{r echo=F,eval=F}
+```{r}
 # Proportion of correct responses
 mean(glm.pred == seasonal_test$seasonal_vaccine)
 
@@ -452,10 +443,7 @@ For our model, we will begin with 10-fold cross validation to determine the opti
 The training confusion matrix is the following, extremely close to the logistic regression model: 
 
 
-```{r echo=F}
-
-# output - appendix
-
+```{r}
 # Reference: http://www.sthda.com/english/articles/36-classification-methods-essentials/149-penalized-logistic-regression-essentials-in-r-ridge-lasso-and-elastic-net/
 
 set.seed(14) 
@@ -473,9 +461,7 @@ coef(lasso_model)
 ```
 
 
-```{r echo=F}
-# output
-
+```{r}
 # Store the predictions on the existing data
 lasso_train_probs <- predict(lasso_model, newx = x, type = 'response')
 
@@ -491,9 +477,7 @@ The training accuracy waas 78.7%. Now, let's evaluate its performance on test se
 
 ### Lasso performance on test set for seasonal flu
 
-```{r echo=F}
-# output
-
+```{r}
 # Make predictions on the test data
 x_testing <- model.matrix(seasonal_vaccine~., seasonal_test)[,-1]
 lasso_probs <- predict(lasso_model, newx = x_testing)
@@ -523,9 +507,7 @@ Compared to the LASSO, no variables are completely removed from the model. Inste
 
 We repeat the process with 10-fold cross validation. Here, we observe an optimal lambda value of 0.0212, so while it is still extremely close to 0, it does suggest that there may be some differences from the previous two models. 
 
-```{r echo=F}
-# output - Appendix?????
-
+```{r}
 set.seed(14) 
 
 cv_ridge <- cv.glmnet(x, y, alpha = 0, family = "binomial")
@@ -537,9 +519,7 @@ coef(ridge_model)
 ```
 
 
-```{r echo = F}
-# output
-
+```{r}
 # Store the predictions on the existing data
 ridge_train_probs <- predict(ridge_model, newx = x, type = 'response')
 
@@ -557,9 +537,7 @@ From the training data confusion matrix, we note that this model seems to accura
 
 ### Ridge performance on test set for seasonal flu
 
-```{r echo=F}
-# output
-
+```{r}
 # Make predictions on the test data
 x_testing <- model.matrix(seasonal_vaccine~., seasonal_test)[,-1]
 ridge_probs <- predict(ridge_model, newx = x_testing)
@@ -590,7 +568,7 @@ Next, we want to consider a Quadratic Discriminant Analysis (QDA). Compared to a
 After fitting all the variables, same as the logistic regression, we observe the following confusion matrix for the training data: 
 
 
-```{r echo = F}
+```{r}
 # Fit the QDA
 qda.fit <- qda(seasonal_vaccine~., data = seasonal_train)
 qda.pred <- predict(qda.fit, seasonal_train)
@@ -598,8 +576,6 @@ qda.class <- qda.pred$class
 ```
 
 ```{r}
-# output
-
 # Confusion Matrix
 table(qda.class, seasonal_train$seasonal_vaccine)
 
@@ -874,23 +850,15 @@ Just like the seasonal vaccine, we begin with a logistic regression model with a
 
 Again using the probability of 0.5 for prediction cutoffs, we observe the following training confusion matrix: 
 
-```{r echo = F}
-# output - Appendix
-
-
+```{r}
 # Fit logistic reg on full data
 Full_glm <- 
   glm(h1n1_vaccine~., data = h1n1_train, family = binomial)
 
 summary(Full_glm)
-#length(coef(Full_glm)) # Check the number of coefficients
 ```
 
-```{r fig.cap = 'Seasonal Vaccine - Training Data Logistic Regression', echo = F}
-# output
-
-# Full GLM Model training error rates
-
+```{r}
 # Store the predictions on the existing data
 glm.probs <- predict(Full_glm, type = 'response')
 
@@ -912,11 +880,7 @@ This model has a training accuracy of 83%, better than the seasonal vaccine rate
 
 ### Full logistic regression performance on test set for h1n1 flu
 
-```{r echo = F}
-# output
-
-############# Full GLM model - test error rates
-
+```{r}
 # Store the predictions on the existing data
 glm.probs <- predict(Full_glm, newdata = h1n1_test,type = 'response')
 
@@ -928,7 +892,7 @@ glm.pred[glm.probs > .5] <- 1
 table(glm.pred, h1n1_test$h1n1_vaccine)
 ```
 
-```{r echo=F,eval=F}
+```{r}
 # Proportion of correct responses
 mean(glm.pred == h1n1_test$h1n1_vaccine)
 
@@ -953,10 +917,7 @@ However, unlike the LASSO for seasonal vaccine, 6 predictors are removed from th
 The training confusion matrix becomes the following: 
 
 
-```{r echo=F}
-
-# output - Appendix?????
-
+```{r}
 set.seed(14) 
 
 x <- model.matrix(h1n1_vaccine~., h1n1_train)[,-1]
@@ -972,9 +933,7 @@ coef(lasso_model)
 ```
 
 
-```{r echo=F}
-# output
-
+```{r}
 # Store the predictions on the existing data
 lasso_train_probs <- predict(lasso_model, newx = x, type = 'response')
 
@@ -992,9 +951,7 @@ The training accuracy is 82.9%, a slight decrease compared to the logistic regre
 
 ### Lasso performance on test set for h1n1 flu
 
-```{r echo=F}
-# output
-
+```{r}
 # Make predictions on the test data
 x_testing <- model.matrix(h1n1_vaccine~., h1n1_test)[,-1]
 lasso_probs <- predict(lasso_model, newx = x_testing)
@@ -1020,9 +977,7 @@ The testing accuracy is 82.1%, also lower than the logistic regression.
 
 Continuing onwards to the ridge logistic regression, the 10-fold cross validation suggests that the optimal lambda value is 0.0166. 
 
-```{r echo=F}
-# output - Appendix????
-
+```{r}
 set.seed(14) 
 
 cv_ridge <- cv.glmnet(x, y, alpha = 0, family = "binomial")
@@ -1035,9 +990,7 @@ coef(ridge_model)
 
  
 
-```{r echo = F}
-# output
-
+```{r}
 # Store the predictions on the existing data
 ridge_train_probs <- predict(ridge_model, newx = x, type = 'response')
 
@@ -1055,9 +1008,7 @@ From the training data confusion matrix, we note that the accuracy is about the 
 
 ### Ridge performance on test set for h1n1 flu
 
-```{r echo=F}
-# output
-
+```{r}
 # Make predictions on the test data
 x_testing <- model.matrix(h1n1_vaccine~., h1n1_test)[,-1]
 ridge_probs <- predict(ridge_model, newx = x_testing)
@@ -1080,18 +1031,15 @@ mean(ridge_pred == h1n1_test$h1n1_vaccine)
 From the testing data confusion matrix, we can calculate the accuracy to be 81.7%. Again, it exhibits the same pattern as the seasonal vaccine, where ridge has again performed the worse compared to the logistic regression and the LASSO. 
 
 
-###########################################################################
-
-
 ## QDA for H1N1
 
-Lastly, we want to consider QDA for a potential quadratic relationship with `h1n1_vaccine`. 
+Next, we want to consider QDA for a potential quadratic relationship with `h1n1_vaccine`. 
 
 
 After fitting all the variables, same as the logistic regression, we observe the following confusion matrix for the training data: 
 
 
-```{r echo = F}
+```{r}
 # Fit the QDA
 qda.fit <- qda(h1n1_vaccine~., data = h1n1_train)
 qda.pred <- predict(qda.fit, h1n1_train)
@@ -1100,9 +1048,7 @@ qda.class <- qda.pred$class
 ```
 
 
-```{r echo=F}
-# output
-
+```{r}
 # Confusion Matrix
 table(qda.class, h1n1_train$h1n1_vaccine)
 
@@ -1116,9 +1062,7 @@ Here, we have the testing confusion matrix:
 
 ### QDA performance on test set for h1n1 flu
 
-```{r echo = F}
-# output
-
+```{r}
 # Fit the QDA
 qda_test_pred <- predict(qda.fit, h1n1_test)
 qda_test_class <- qda_test_pred$class
