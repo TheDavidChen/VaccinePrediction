@@ -26,6 +26,10 @@ model_train <-
 ## SVM
 
 
+**** General Description of SVM method
+
+### SVC for H1N1 (linear)
+
 ```{r}
 #SVM for H1N1
 h1n1_train <- model_train
@@ -37,36 +41,72 @@ set.seed(140)
 h1n1_train$h1n1_vaccine <- as.factor(model_train$h1n1_vaccine)
 svc.fit <- svm(h1n1_vaccine~., data=h1n1_train,kernel="linear",cost=0.01)
 summary(svc.fit)
+```
+
+```{r}
+
 train.pred <- predict(svc.fit, h1n1_train)
 table(h1n1_train$h1n1_vaccine,train.pred)
 (8606+1308)/11963
+```
+
+Training error rates.....
+
+```{r}
+
 test.pred <- predict(svc.fit, h1n1_test)
 table(h1n1_test$h1n1_vaccine, test.pred)
 (5771+843)/7973
+
+```
+
+Test error rates, sensitivity, specificity....
+
+### SVM for H1N1 (radial)
+```{r}
 
 #SVM with radial kernel
 set.seed(140)
 svm.fit <- svm(h1n1_vaccine~.,data=h1n1_train, kernel="radial")
 summary(svm.fit)
+```
+
+```{r}
 train.pred <- predict(svm.fit, h1n1_train)
 table(h1n1_train$h1n1_vaccine,train.pred)
 (8726+1338)/11963
+```
+
+```{r}
 test.pred <- predict(svm.fit, h1n1_test)
 table(h1n1_test$h1n1_vaccine, test.pred)
 (5795+799)/7973
+```
 
+### SVM for H1N1 (polynomial)
+```{r}
 
 #SVM with polynomial kernel
 set.seed(140)
 svm.fit <- svm(h1n1_vaccine ~ ., data = h1n1_train, kernel = "poly", degree = 2)
 summary(svm.fit)
+```
+
+```{r}
 train.pred <- predict(svm.fit, h1n1_train)
 table(h1n1_train$h1n1_vaccine,train.pred)
 (8717+1267)/11963
+```
+
+```{r}
 test.pred <- predict(svm.fit, h1n1_test)
 table(h1n1_test$h1n1_vaccine, test.pred)
 (5830+772)/7973
+```
 
+
+### SVM for Seasonal Flu (linear)
+```{r}
 
 #SVM for Seasonal
 seasonal_train <- model_train
@@ -78,32 +118,57 @@ set.seed(140)
 seasonal_train$seasonal_vaccine <- as.factor(seasonal_train$seasonal_vaccine)
 svc.fit <- svm(seasonal_vaccine~., data=seasonal_train,kernel="linear",cost=0.01)
 summary(svc.fit)
+```
+
+```{r}
 train.pred <- predict(svc.fit, seasonal_train)
 table(seasonal_train$seasonal_vaccine,train.pred)
 (5104+4265)/11963
+```
+
+```{r}
 test.pred <- predict(svc.fit, model_test)
 table(model_test$seasonal_vaccine, test.pred)
 (3384+2828)/7973
+```
 
+### SVM for Seasonal Flu (radial)
+```{r}
 
 #SVM with radial kernel
 set.seed(140)
 svm.fit <- svm(seasonal_vaccine~.,data=seasonal_train, kernel="radial")
 summary(svm.fit)
+```
+
+```{r}
 train.pred <-  predict(svm.fit, seasonal_train)
 table(seasonal_train$seasonal_vaccine, train.pred)
 (5207+4455)/11963
+```
+
+```{r}
 test.pred <- predict(svm.fit, seasonal_test)
 table(seasonal_test$seasonal_vaccine, test.pred)
 (3393+2859)/7973
+```
 
+### SVM for Seasonal Flu (polynomial)
+```{r}
 #SVM with polynomial kernel
 set.seed(140)
 svm.fit <- svm(seasonal_vaccine ~ ., data = seasonal_train, kernel = "poly", degree = 2)
 summary(svm.fit)
+```
+
+```{r}
 train.pred <-  predict(svm.fit, seasonal_train)
 table(seasonal_train$seasonal_vaccine, train.pred)
 (5223+4265)/11963
+
+```
+
+```{r}
 test.pred <- predict(svm.fit, seasonal_test)
 table(seasonal_test$seasonal_vaccine, test.pred)
 (3427+2762)/7973

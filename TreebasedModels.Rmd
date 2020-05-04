@@ -34,7 +34,6 @@ options(digits=3)     # Set digits to 3 to avoid too many values
 ```
 
 
-
 # Seasonal Vaccine Prediction
 
 ```{r}
@@ -55,7 +54,38 @@ seasonal_test <- seasonal_test %>%
   mutate_if(sapply(seasonal_test, is.character), as.factor)
 ```
 
-### Tree
+
+
+# H1N1 Vaccine Prediction
+
+```{r}
+h1n1_train <- 
+  model_train %>%
+  select(-seasonal_vaccine, -respondent_id) %>%
+  mutate(h1n1_vaccine= as_factor(h1n1_vaccine))
+
+h1n1_test <-
+  model_test %>%
+  select(-seasonal_vaccine, -respondent_id)%>%
+  mutate(h1n1_vaccine= as_factor(h1n1_vaccine))
+
+h1n1_train <- h1n1_train %>%
+  mutate_if(sapply(h1n1_train, is.character), as.factor)
+
+h1n1_test <- h1n1_test %>%
+  mutate_if(sapply(h1n1_test, is.character), as.factor)
+```
+
+## Tree-based methods
+
+Trees are some of the most intuitive prediction methods. They are simple yet effective. They use simple decision rules to differentiate an observation into different segments based on the predictors. We can then use these decision rules to classify new data into segments and use the training observations in these segments to make predictions for the new data. In addition to using a tree to classify our response variables, we can also use other tree-based methods like bagging, random forest and boosting to create multiple trees and then combine them for improved performance.
+
+We will evaluate each tree-based method's performance for seasonal flu vaccination and then h1n1 vaccination
+
+### Tree for seasonal flu
+
+Tree is the simplest tree-based method. We use the 26 potential predictors to create the tree.
+
 
 ```{r, warning=F}
 tree_seasonal <- tree(seasonal_vaccine~.,seasonal_train)
@@ -65,7 +95,7 @@ plot(tree_seasonal)
 text(tree_seasonal,pretty=0)
 ```
 
-Above, we can see what the tree looks like. Our tree only uses 3 variables for this classification: opinion_seas_risk, doctor_recc_seasonal and opinion_seas_vacc_effective.
+Above, we can see what the tree looks like. Our tree only uses 3 variables for this classification of seasonal flu vaccination: opinion_seas_risk, doctor_recc_seasonal and opinion_seas_vacc_effective.
 
 We can see below how accurately this tree performs on the training set.
 
@@ -79,9 +109,9 @@ table(tree.pred, seasonal_train$seasonal_vaccine)
 mean(tree.pred== seasonal_train$seasonal_vaccine)
 ```
 
-It looks like an accuracy of 73.4% is better than chance. However, an error rate of 26.6% is still not great. We can look into ways to prune this tree to see if they can lead to improved performance.
+It looks like an accuracy of 73.4% is better than chance. However, an error rate of 26.6% is still not great. We can look into ways to prune this tree to see if it can lead to improved performance.
 
-### Pruned Tree
+### Pruned Tree for seasonal flu
 
 We can use cross-validation to determine what sized tree might be best for our purposes. We will use misclassification rate tog guide the cross-validation.
 
@@ -113,7 +143,7 @@ mean(prunetree.pred== seasonal_train$seasonal_vaccine)
 
 Once again, we get an accuracy of 73.4%. This suggests that pruning the above tree doesn't really affect the performance and they lead to the exact same predictions. Therefore, let's just look at the test set performance of the full tree.
 
-### Tree model performance on test set
+### Tree model performance on test set for seasonal flu
 
 ```{r, warning=FALSE}
 tree.pred.test=predict(tree_seasonal,seasonal_test,type="class")
@@ -128,9 +158,11 @@ mean(tree.pred.test== seasonal_test$seasonal_vaccine)
 
 The tree has test set accuracy of 73.2% (test error rate of 26.8%).
 
-Based on these analysis, it doesn't look like using a tree would be a great option. However, we can still use methods like bagging and random forest to combine different trees and evaluate whether these combinations are better fit for this data.
+Based on these analysis, it doesn't look like using a tree would be a great option. However, we can still use other techniques to combine different trees and evaluate whether these combinations are better fit for this data.
 
-### Bagging
+### Bagging for seasonal flu
+
+One of the techniques to combine multiple trees is bagging. With this technique we can train a large number of trees from the same training data using bootstrapping and then combine them to create a model with reduced variance in comparison with a single tree.
 
 ```{r, warning=FALSE}
 set.seed(56)
@@ -145,7 +177,7 @@ We can see that bagging results in a out of bag (OOB) error rate of just 22.6% (
 varImpPlot(bag_seasonal)
 ```
 
-### Bagged model performance on test set
+### Bagged model performance on test set for seasonal flu
 
 ```{r, warning=FALSE}
 bag.pred.test=predict(bag_seasonal,seasonal_test,type="class")
@@ -160,9 +192,11 @@ mean(bag.pred.test== seasonal_test$seasonal_vaccine)
 
 The bagging model has a test set accuracy of 77% (test error rate of 23%).
 
-### Random Forest
+### Random Forest for seasonal flu
 
-We used mtry=26 so that all available features were considered for each split of the tree. Instead of using all 26 features at each of the step, we could also only use a select few chosen randomly each time. This means that we will just be conducting a random forest analysis. We are going to use the default mtry value, which is square root of 26 (around 5). Let's see if that improves our performance.
+We used mtry=26 for bagging so that all available features were considered for each split of the tree. Instead of using all 26 features at each of the step, we could also only use a select few chosen randomly each time. This will ensure that a few very important features don't get selected for every single tree causing moderately important features to be able to have an effect. This is what random forest models do. 
+
+For our random forest model, we are going to use the default mtry value, which is square root of 26 (around 5). Let's see if that improves our performance.
 
 ```{r, warning=FALSE}
 set.seed(56)
@@ -179,7 +213,7 @@ varImpPlot(rf_seasonal)
 
 Now let's evaluate this model's performance on test set.
 
-### Random Forest model performance on test set
+### Random Forest model performance on test set for seasonal flu
 
 ```{r, warning=FALSE}
 rf.pred.test=predict(rf_seasonal,seasonal_test,type="class")
@@ -194,9 +228,11 @@ mean(rf.pred.test== seasonal_test$seasonal_vaccine)
 
 The random forest model had a test set accuracy of 77.8% (a test error rate of 22.2%).
 
-### Boosting
+### Boosting for seasonal flu
 
-We can also use boosting and evaluate its performance. A 5-fold cross-validation was also conducted to determine the optimal number of trees.
+We can also use boosting as a method to improve performance using multiple trees. While bagging and random forest methods train multiple trees that are independent of each other, generalized boosted models grow trees sequentially, i.e. using information from the previous trees. 
+
+Here, we used a generalized boosted model with 5000 trees. Shrinkage value of 0.01 and interaction depth of 1 usually work well with most kinds of data so we are sticking with these tuning parameters for the model. A 5-fold cross-validation was also conducted to determine the optimal number of trees.
 
 ```{r, warning=FALSE}
 set.seed(56)
@@ -204,14 +240,13 @@ set.seed(56)
 
 boost_seasonal <- gbm(seasonal_vaccine~.,(seasonal_train %>% mutate(seasonal_vaccine=as.integer(levels(seasonal_vaccine)[seasonal_vaccine]))), distribution = "bernoulli",n.trees=5000,interaction.depth=1,shrinkage=0.01,cv.folds=5)
 boost_seasonal
-summary(boost_seasonal)
 ```
 
 Our cross-validation suggested that the most optimal number of trees to use for this data would be 4997. 
 
-Let's evaluate this models performance on the test set.
+Let's evaluate this model's performance on the test set.
 
-### Boosted model performance on test set
+### Boosted model performance on test set for seasonal flu
 
 ```{r, warning=FALSE}
 boost.pred.test=predict(boost_seasonal,seasonal_test,type="response",n.trees=4997)
@@ -228,30 +263,14 @@ mean(boost.pred.test== (seasonal_test %>% mutate(seasonal_vaccine=as.integer(lev
 
 Here, we see that our boosted model with 4997 trees resulted in a test set accuracy of 77.8% (test error rate of 22.2%).
 
+Now that we have looked at multiple tree-based methods and their performances on our test set, it looks like the random forest model and generalized boosted model fit the data the best when we are predicting seasonal flu vaccination.
+
+Next, we are going to evaluate these tree-based methods in connection with h1n1 vaccination prediction.
 
 
+### Tree for h1n1
 
-# H1N1 Vaccine Prediction
-
-```{r}
-h1n1_train <- 
-  model_train %>%
-  select(-seasonal_vaccine, -respondent_id) %>%
-  mutate(h1n1_vaccine= as_factor(h1n1_vaccine))
-
-h1n1_test <-
-  model_test %>%
-  select(-seasonal_vaccine, -respondent_id)%>%
-  mutate(h1n1_vaccine= as_factor(h1n1_vaccine))
-
-h1n1_train <- h1n1_train %>%
-  mutate_if(sapply(h1n1_train, is.character), as.factor)
-
-h1n1_test <- h1n1_test %>%
-  mutate_if(sapply(h1n1_test, is.character), as.factor)
-```
-
-### Tree
+Here, we create a simple tree for h1n1 vaccination classification.
 
 ```{r, warning=F}
 tree_h1n1 <- tree(h1n1_vaccine~.,h1n1_train)
@@ -277,9 +296,9 @@ mean(tree.pred== h1n1_train$h1n1_vaccine)
 
 It looks like we get an accuracy of 81.5% (an error rate of 18.5%), which is pretty good. Let's see if pruning this tree can lead to improved performance.
 
-### Pruned Tree
+### Pruned Tree for h1n1
 
-We can use cross-validation to determine the pruned tree size. We will use misclassification rate to guide the cross-validation.
+Just like before, we use misclassification rate to guide the cross-validation to determine the optimal size of the pruned tree.
 
 ```{r, warning=F}
 cv_tree_h1n1 <-cv.tree(tree_h1n1,FUN=prune.misclass)
@@ -293,7 +312,7 @@ plot(cv_tree_h1n1$size,cv_tree_h1n1$dev,type="b")
 
 ```
 
-From the output above, it looks like cross-validation error is lowest when the tree size is 5 or 6. A tree of size 6 is the original tree we started with. So, it doesn't seem that using size of 5 or 6 will give much different results but let's try using a tree of size 5.
+From the output above, it looks like cross-validation error is lowest when the tree size is 5 or 6. A tree of size 6 is the original tree we started with so, let's just try using a tree of size 5.
 
 ```{r, warning=FALSE}
 prune_tree_h1n1=prune.misclass(tree_h1n1,best=5)
@@ -307,9 +326,9 @@ table(prunetree.pred, h1n1_train$h1n1_vaccine)
 mean(prunetree.pred== h1n1_train$h1n1_vaccine)
 ```
 
-Once again, we get an accuracy of 81.5%. This suggests that pruning the above tree doesn't really affect the performance and they lead to the exact same predictions. Therefore, let's just look at the test set performance of the full tree.
+Once again, we get an accuracy of 81.5%. This suggests that pruning the above tree doesn't really affect the performance and they lead to the exact same predictions. Therefore, we just look at the test set performance of the full tree.
 
-### Tree model performance on test set
+### Tree model performance on test set for h1n1
 
 ```{r, warning=FALSE}
 tree.pred.test=predict(tree_h1n1,h1n1_test,type="class")
@@ -324,9 +343,7 @@ mean(tree.pred.test== h1n1_test$h1n1_vaccine)
 
 The tree has test set accuracy of 81.4% (test error rate of 18.6%).
 
-Next we use methods like bagging and random forest to combine different trees and evaluate whether these combinations are better fit for this data.
-
-### Bagging
+### Bagging for h1n1
 
 ```{r, warning=FALSE}
 set.seed(56)
@@ -335,9 +352,9 @@ bag_h1n1 <- randomForest(h1n1_vaccine~.,h1n1_train, mtry=26,importance=TRUE)
 bag_h1n1
 ```
 
-We can see that bagging results in a out of bag (OOB) error rate of just 17.6% (accuracy of 82.4%), which is much better than 18.5% training error rate we got for the pruned and unpruned trees. This suggests that this model might perform better on test set.
+We can see that bagging results in an out of bag (OOB) error rate of just 17.6% (accuracy of 82.4%), which is much better than 18.5% training error rate we got for the pruned and unpruned trees. This suggests that this model might perform better on test set.
 
-### Bagged model performance on test set
+### Bagged model performance on test set for h1n1
 
 ```{r, warning=FALSE}
 bag.pred.test=predict(bag_h1n1,h1n1_test,type="class")
@@ -356,9 +373,7 @@ The bagging model has a test set accuracy of 82.5% (test error rate of 17.5%).
 varImpPlot(bag_h1n1)
 ```
 
-### Random Forest
-
-Let's see if using random forest improves our performance.
+### Random Forest for h1n1
 
 ```{r, warning=FALSE}
 set.seed(56)
@@ -375,7 +390,7 @@ varImpPlot(rf_h1n1)
 
 Now let's evaluate this model's performance on test set.
 
-### Random Forest model performance on test set
+### Random Forest model performance on test set for h1n1
 
 ```{r, warning=FALSE}
 rf.pred.test=predict(rf_h1n1,h1n1_test,type="class")
@@ -390,7 +405,7 @@ mean(rf.pred.test== h1n1_test$h1n1_vaccine)
 
 The random forest model had a test set accuracy of 83.1% (a test error rate of 16.9%).
 
-### Boosting
+### Boosting for h1n1
 
 We can also use boosting and evaluate its performance. A 5-fold cross-validation was also conducted to determine the optimal number of trees.
 
@@ -400,14 +415,13 @@ set.seed(56)
 
 boost_h1n1 <- gbm(h1n1_vaccine~.,(h1n1_train %>% mutate(h1n1_vaccine=as.integer(levels(h1n1_vaccine)[h1n1_vaccine]))), distribution = "bernoulli",n.trees=5000,interaction.depth=1,shrinkage=0.01,cv.folds=5)
 boost_h1n1
-summary(boost_h1n1)
 ```
 
 Our cross-validation suggested that the most optimal number of trees to use for this data would be 3911. 
 
 Let's evaluate this models performance on the test set.
 
-### Boosted model performance on test set
+### Boosted model performance on test set for h1n1
 
 ```{r, warning=FALSE}
 boost.pred.test=predict(boost_h1n1,h1n1_test,type="response",n.trees=3911)
@@ -424,8 +438,155 @@ mean(boost.pred.test== (h1n1_test %>% mutate(h1n1_vaccine=as.integer(levels(h1n1
 
 Here, we see that our boosted model with 3911 trees resulted in a test set accuracy of 83% (test error rate of 17%).
 
+Overall, it looks like random forest model performs the best with regards to h1n1 vaccination prediction. Although we should note that this is only a small improvement over the boosted model.
+
+Looking back at the tree-based methods, we can see that random forest and boosting seem to fit the data the best whether we are predicting seasonal flu vaccination or h1n1 vaccination.
 
 
+
+
+
+
+
+# Appendix
+
+## Full GLM with interactions
+```{r echo = F}
+# Fit logistic reg on full data
+Full_glm <- 
+  glm(seasonal_vaccine~.*doctor_recc_seasonal*age_group, 
+      data = seasonal_train, family = binomial)
+#summary(Full_glm)
+length(coef(Full_glm))-1
+```
+
+
+## Full model - LR - Training error rates
+
+```{r echo = F}
+# Get the number of rows
+n_train <- nrow(seasonal_train)
+
+# Store the predictions on the existing data
+glm.probs <- predict(Full_glm, type = 'response')
+
+# Determine predictions
+glm.pred <- rep(0, n_train)
+glm.pred[glm.probs > .5] <- 1
+
+# Generate confusion matrix
+table(glm.pred, seasonal_train$seasonal_vaccine)
+```
+
+Training error rate of 79.5, compared to naive 52.2%. Not too bad!
+
+```{r}
+# Proportion of correct responses
+mean(glm.pred == seasonal_train$seasonal_vaccine)
+
+# Proportion correct if you just no each time - 52%
+mean(0 == seasonal_train$seasonal_vaccine)
+
+```
+
+## Full model - LR -  testing error rates
+
+
+```{r eval = F}
+# Get the number of rows
+n_test <- nrow(seasonal_test)
+
+# Store the predictions on the existing data
+glm.probs <- predict(Full_glm, newdata = seasonal_test,type = 'response')
+
+# Determine predictions
+glm.pred <- rep(0, n_test)
+glm.pred[glm.probs > .5] <- 1
+
+# Generate confusion matrix
+table(glm.pred, seasonal_test$seasonal_vaccine)
+```
+
+
+Applied to the testing set, the testing error rate only dips slightly to 77.9%. The naive model would have done 52.2%. 
+```{r eval = F}
+# Proportion of correct responses
+mean(glm.pred == seasonal_test$seasonal_vaccine)
+
+# Proportion correct if you just no each time - 52%
+mean(0 == seasonal_test$seasonal_vaccine)
+```
+
+## Lasso with interactions 
+```{r eval=F}
+# Reference: http://www.sthda.com/english/articles/36-classification-methods-essentials/149-penalized-logistic-regression-essentials-in-r-ridge-lasso-and-elastic-net/
+
+set.seed(14) 
+
+x <- model.matrix(seasonal_vaccine~.*doctor_recc_seasonal*age_group, seasonal_train)[,-1]
+y <- seasonal_train$seasonal_vaccine
+
+
+cv.lasso <- cv.glmnet(x, y, alpha = 1, family = "binomial", nfolds = 5)
+
+lasso_model <- glmnet(x, y, alpha = 1, family = "binomial",
+                lambda = cv.lasso$lambda.min)
+
+coef(lasso_model)
+```
+
+Training rates - 78.3%. Note that including doctor recommendation and age group did increase training rates to 0.789, but testing error rates were decreased. 
+```{r eval=F}
+# Store the predictions on the existing data
+lasso_train_probs <- predict(lasso_model, newx = x, type = 'response')
+
+# Determine predictions
+lasso_train_pred <- ifelse(lasso_train_probs > 0.5, 1, 0)
+
+# Generate confusion matrix
+table(lasso_train_pred, seasonal_train$seasonal_vaccine)
+mean(lasso_train_pred == seasonal_train$seasonal_vaccine)
+```
+
+
+Test rates - 76.8%. Including interactions decreased to 76.5. 
+```{r eval=F}
+# Make predictions on the test data
+x_testing <- 
+  model.matrix(seasonal_vaccine~.*doctor_recc_seasonal*age_group, seasonal_test)[,-1]
+lasso_probs <- predict(lasso_model, newx = x_testing)
+
+lasso_pred <- ifelse(lasso_probs > 0.5, 1, 0)
+
+# Generate confusion matrix
+table(lasso_pred, seasonal_test$seasonal_vaccine)
+
+# Accuracy
+mean(lasso_pred == seasonal_test$seasonal_vaccine)
+```
+
+
+
+
+```{r}
+# Important predictors from Bagging for seasonal flu
+varImpPlot(bag_seasonal)
+
+# Important predictors from Random Forest for seasonal flu
+varImpPlot(rf_seasonal)
+
+# Important predictors from GBM for seasonal flu
+summary(boost_seasonal)
+
+# Important predictors from Bagging for h1n1 flu
+varImpPlot(bag_h1n1)
+
+# Important predictors from Random Forest for h1n1 flu
+varImpPlot(rf_h1n1)
+
+# Important predictors from GBM for h1n1 flu
+summary(boost_h1n1)
+```
 
 
 

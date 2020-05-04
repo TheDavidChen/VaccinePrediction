@@ -1,0 +1,1361 @@
+---
+title: "Predicting Seasonal and Swine Flu (H1N1) Vaccinations"
+author: "Sandesh Bhandari, David Chen, Elizabeth Saline"
+date: "5/4/2020"
+output: html_document
+---
+
+# Introduction
+
+Vaccines have proven an effective way to protect people against certain viral diseases, but not everyone gets the vaccines that are available.  There are some legitimate reasons people cannot get a vaccine (e.g. compromised immunity or allergy to an ingredient) that cannot be overcome, but other people avoid vaccines without these reasons.
+
+This data for this project comes from a contest hosted by DrivenData.  The goal of the contest is to predict how likely individuals are to receive two vaccines: the H1N1 and seasonal flu.  The data was collected through the National 2009 H1N1 Flu Survey.  A number of belief, behavior, and demographic factors were collected and used to create models to predict whether the individual received one, both, or neither of the vaccines.
+
+
+-------------------------------
+
+
+# Data
+
+For this project, we are working with seasonal flu and swine flue (h1n1) vaccination data provided through drivendata.org (link in Appendix). We are interested in creating models to predict seasonal flu and swine flu vaccinations. We are exploring the usefulness of various modeling techniques we have learned throughout the semester in tackling this classification problem. For the purposes of this project, we will only use the training data provided, which consists of 26707 observations of 36 variables. We first load the necessary libraries, data set, and global options.
+
+```{r warning = F, message = F}
+# Clean up R environment
+rm(list = ls())
+
+# Load in packages
+library(knitr)        # This is to make pretty tables (see kable() )
+library(corrplot)     # Correlation plot 
+library(caret)        # For splitting dataset
+library(MASS)         # For QDA function 
+library(tidyverse)    # Data wrangling, ggplot, etc.
+library(glmnet)       # Penalized logistic regression
+library(tree)         # For trees
+library(randomForest) # For Random Forest
+library(gbm)          # For Generalized Boosted Models
+library(ROCR)         # For ROC curves
+
+# Read in data
+Raw_data <- 
+  read.csv("./Data/training_set_features.csv", stringsAsFactors=FALSE,
+           na.strings=c("","NA")) # Account for blanks being NA
+Raw_labels <- 
+  read.csv("./Data/training_set_labels.csv", stringsAsFactors=FALSE)
+
+Training_full <- cbind(Raw_data, Raw_labels[2:3])
+
+# Global options
+set.seed(14)
+theme_set(theme_bw()) # Set a better ggplot theme
+options(digits=3)     # Set digits to 3 to avoid too many values
+```
+
+
+## Exploratory Data Analysis
+
+Before diving into the models, we conducted exploratory data analysis to understand our data better. We checked all variables in the dataset for missing data. 
+
+```{r}
+# Total number of NAs
+kable(sapply(Training_full, function(x) sum(is.na(x))), col.names = 'NA Values')
+```
+
+From the missing data counts above, we can see that `health_insurance`, `employment_industry`, and `employment_occupation` have a LOT of NAs. Since these 3 variables have almost half data missing, they are probably not going to be useful predictors for our models. Therefore, it might make sense to not include these 3 variables as our potential predictors.
+
+```{r}
+# Remove the 3 variables with almost half missing data
+
+training <- 
+  Training_full %>% 
+  dplyr::select(-health_insurance,-employment_industry,-employment_occupation)
+
+```
+
+Next, let's look at our response variables of interest. Each of the 2 response variables is binary with 0 indicating no vaccination versus 1 indicating vaccination.
+
+```{r}
+# Examine how may of the total observations were vaccinated
+training %>%
+  summarize(seasonal_vaccine = sum(seasonal_vaccine), 
+            h1n1_vaccinated = sum(h1n1_vaccine), 
+            n = n())
+```
+
+We found that 46.6% of respondents were vaccinated for the flu, while only 21.2% were vaccinated for h1n1. Let's see what the relationship between the 2 vaccinations look like.
+
+```{r}
+# Cross-tabs of the 2 vaccines
+training %>%
+  group_by(seasonal_vaccine)%>%
+  summarize(h1n1_vaccinated = sum(h1n1_vaccine), 
+            n = n(),
+            proportion=h1n1_vaccinated/n)
+```
+
+From the output above, we can see that out of respondents who had vaccinated for seasonal flu 37.77% also vaccinated for h1n1. But for respondents who had not vaccinated for seasonal flu, only 6.85% vaccinated for h1n1. This shows that the 2 vaccinations are related to each other. People seem to be more likely to get h1n1 vaccine if they get seasonal flu vaccine as well.
+
+In addition to the 2 response variables, we also have 32 potential predictors (not including respondent IDs and the 3 variables from above with huge number of NAs). Out of these, 15 are demographic variables. Let's first look at these demographic variables.
+
+```{r,fig.height=10,fig.width=16,fig.align = 'center',fig.cap = "Frequencies of demographic variables"}
+# Create bar plots with frequencies of demographic variables
+training %>%
+  dplyr::select(age_group:household_children,health_worker,child_under_6_months,chronic_med_condition)%>%
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_bar()+
+    ggtitle("Frequencies of demographic variables")+
+    theme(text = element_text(size=12), axis.text.x = element_text(angle=45, hjust=1))
+```
+
+- From the plot above, we can see that the distribution of data by age group is not skewed (almost uniform) so we have enough data from each age group. 
+
+- The census_msa plot shows that most of our respondents live in a metropolitan statistical area (MSA) as defined by the US Census, with only about 6000 in Non-MSA.
+
+- From the chronic_med_condition plot, we can see that most participants do not have chronic conditions but there are around 5000 participants who do have such conditions.
+
+- Based on the education plot, it looks like most of our respondents have at least some college education. We do have 1407 missing education values though.
+
+- We can also see that most of our respondents are either employed or not in the labor force. Respondents not in the labor force are not employed and have stopped looking for work. Only a small number of respondents are unemployed and looking for a job. We also have 1463 missing values here.
+
+- The health_worker plot shows that overwhelming majority of respondents in our sample do not work in healthcare.
+
+- Even though our data doesn't specify the name of the geographical region, it looks like we have decent representation from all 10 geographical regions.
+
+- The household variables suggest that most of the respondents live in a household either by themselves or with one other adult. Most of the respondents also have no children in the household with very few respondents having an infant under 6 months of age.
+
+- The income data suggests that most respondents are above poverty but make less than 75,000 USD per year. There are few participants who are below poverty. We also have 4423 missing values, which may be a big chunk for our modeling.
+
+- The respondents are about equally distributed based on marital status. 
+
+- Our sample is also overwhelmingly white with very few participants from other races. As such, our findings may not be applicable to general population.
+
+- In addition to the above information, the plots also show that most of our respondents own their home. We can also see that we have more female respondents than male.
+
+Overall, it looks like our sample maybe fairly representative of the US. However, we should be cautious about overly generalizing our models especially given the high proportion of White respondents compared non-white.
+
+We can also look at the relationship between these demographic variables and vaccinations.
+
+```{r, fig.height=8,fig.align = 'center',fig.cap = "Seasonal Vaccine Distributions Among Demographic Variables"}
+# Group and tally demographic variables and seasonal flu vaccinations
+seasonal_demo <-
+  training %>%
+  select(age_group:household_children,health_worker,child_under_6_months,chronic_med_condition,h1n1_vaccine,seasonal_vaccine) %>% 
+  mutate_all(as.character) %>%  # Convert them all the character so we can pivot
+  mutate(seasonal_vaccine = ifelse(seasonal_vaccine == 1, 'Yes', 'No'),
+         h1n1_vaccine = ifelse(h1n1_vaccine == 1, 'Yes', 'No')) %>%
+  select(-h1n1_vaccine) %>%
+  pivot_longer(cols = -seasonal_vaccine) %>%
+  group_by(name, seasonal_vaccine, value) %>%
+  tally() 
+
+# Obtain the list of names to filter during plotting
+demo_names <- unique(seasonal_demo$name)
+
+# Plots comparing seasonal flu vaccinations for different demographics
+seasonal_demo %>%
+  filter(name %in% demo_names[c(1:15, 9:12)]) %>%
+  ggplot(aes(x = value, y = n, fill = seasonal_vaccine)) +
+      facet_wrap(~ name, scales = "free") +
+      geom_bar(position="fill", stat="identity")+
+      ggtitle("Seasonal Vaccine Distributions Among Demographic Variables") +
+      theme(text = element_text(size=8), axis.text.x = element_text(angle=60, hjust=1))
+```
+
+It looks like older people are much more likely to get flu vaccinations, which makes sense since they are the most in danger amongst the age groups we have data for. It also looks like health workers are more likely to be vaccinated than non-health workers while people with chronic health conditions are more likely to vaccinated. We can also see that unemployed respondents were less likely to get vaccines.
+
+```{r, fig.height=8,fig.align = 'center',fig.cap="H1N1 Vaccine Distributions Among Demographic Variables"}
+# Group and tally demographic variables and h1n1 vaccinations
+h1n1_demo <-
+  training %>%
+  select(age_group:household_children,health_worker,child_under_6_months,chronic_med_condition,h1n1_vaccine,seasonal_vaccine) %>% 
+  mutate_all(as.character) %>%  # Convert them all the character so we can pivot
+  mutate(seasonal_vaccine = ifelse(seasonal_vaccine == 1, 'Yes', 'No'),
+         h1n1_vaccine = ifelse(h1n1_vaccine == 1, 'Yes', 'No')) %>%
+  select(-seasonal_vaccine) %>%
+  pivot_longer(cols = -h1n1_vaccine) %>%
+  group_by(name, h1n1_vaccine, value) %>%
+  tally()
+
+# Plots comparing h1n1 vaccinations for different demographics
+h1n1_demo %>%
+  filter(name %in% demo_names[c(1:15, 9:12)]) %>%
+  ggplot(aes(x = value, y = n, fill = h1n1_vaccine)) +
+      facet_wrap(~ name, scales = "free") +
+      geom_bar(position="fill", stat="identity")+
+      ggtitle("H1N1 Vaccine Distributions Among Demographic Variables") +
+      theme(text = element_text(size=8), axis.text.x = element_text(angle=60, hjust=1))
+```
+
+From above, we can see that health workers are more likely to get h1n1 vaccinations. However, older respondents did not seem to be that much more likely than younger participants to get h1n1 vaccines. Respondents with chronic medical conditions were slightly more likely to get this vaccine.
+
+Overall, it looks like age group and health worker could be important demographic factors in predicting vaccinations.
+
+Next, we can look at the other potential predictors and their distributions.
+
+```{r,fig.height=10,fig.width=16,fig.align = 'center', fig.cap = "Frequencies of non-demographic variables"}
+# Create bar plots with frequencies of non-demographic variables
+training %>%
+  dplyr::select(h1n1_concern:opinion_seas_sick_from_vacc,-health_worker,-child_under_6_months,-chronic_med_condition)%>%
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_bar()+
+    ggtitle("Frequencies of non-demographic variables")+
+    theme(text = element_text(size=12), axis.text.x = element_text(angle=45, hjust=1))
+
+```
+
+From the frequency plots above, we can see that some of the behavioral responses like using antiviral meds and face masks very low adherence but other behavioral responses like touching avoiding contacts with others, avoiding touching face and washing hands have pretty high adherence.
+
+From the doctor recommendation variables, we can see that the respondents' doctors were not very likely to recommend either seasonal or h1n1 vaccines. However, they were likely to recommend seasonal vaccine more than h1n1 vaccine. These rates look similar to vaccination rates for the 2 vaccines so they may be useful predictors.
+
+It looks like participants, in general, had some knowledge about h1n1 but they were only moderately concerned. They also were more likely to consider h1n1 risk to be lower. More respondents thought the seasonal flu risks were higher than h1n1 risk.
+
+From the opinion related plots, we see that most participants considered both seasonal and h1n1 vaccines to be effective.
+
+Overall, almost all of these potential predictors seem to be useful in capturing some aspect of vaccination behaviors.
+
+Let's now look at the correlation matrix for our numeric predictors and see how they are related to each other and the vaccination rates.
+
+```{r,fig.height=10, fig.width=16,fig.align = 'center',fig.cap = "Correlation among non-demographic variables and vaccinations"}
+# Correlation plot for non-demographic predictors and vaccinations
+nondemocorr <- 
+  training %>%
+  dplyr::select(h1n1_concern:opinion_seas_sick_from_vacc, seasonal_vaccine, h1n1_vaccine) %>%
+  as.matrix() %>%
+  cor(method=c("spearman"), use="pairwise.complete.obs")
+
+corrplot(nondemocorr, method="number", number.cex = .7)
+
+```
+
+
+It looks like behavioral variables seem to be positively correlated with each other. It might be possible to reduce the number of variables if we combine the behavioral variables together such that this new variable will indicate the number of safe behaviors a respondent adhered to. A "safe_behaviors" variable could just add variables from behavioral_antiviral_meds to behavioral_touch_face.
+
+Also, doctor_recc_h1n1 and doctor_recc_seasonal, which represent whether the respondent's doctor recommended h1n1 or seasonal vaccine, also seem to be strongly positively correlated. This probably supports our earlier finding that respondents who get seasonal flu vaccines are more likely to get vaccinated for h1n1 as well.
+
+Opinion variables also seem to be correlated with each other but since they touch on different aspects of the two diseases (like risks, vaccine effectiveness, etc), it doesn't make sense to combine them directly. We should consider including them as they are.
+
+Below, we create the new variable combining the behavior variables. This new variable represents the total number of healthy behaviors that the respondents adhered to (in relation to flu-like diseases).
+
+```{r, fig.height=2,fig.align = 'center'}
+# Create new variable combining behavioral predictors
+newvariable1 <- training %>%
+  dplyr::select(behavioral_antiviral_meds:behavioral_touch_face) %>%
+  mutate(safe_behaviors=rowSums(.,na.rm=FALSE))%>%
+  dplyr::select(-behavioral_antiviral_meds:-behavioral_touch_face)
+
+training$safe_behaviors <- newvariable1$safe_behaviors
+
+# Remove individual behavioral variables
+training <- training %>% select(-behavioral_antiviral_meds:-behavioral_touch_face)
+
+# Frequencies of the newly created "safe_behaviors" variable
+training %>%
+  ggplot(aes(x=safe_behaviors))+
+  geom_histogram()+
+  ggtitle("Safe Behavior Counts")
+```
+
+It looks like this newly created variable is pretty normally distributed. We removed all the behavior variables and replaced it with this newly created one.
+
+For the purposes of this project, we are evaluating multiple classification methods that we learned during the last semester. There are many instances where missing data can impact a model's performance. This is especially an issue if there is missing data for a large chunk of observations. We already decided to not include 3 variables that had almost half missing data rate. Even without these variables, we needed to make a decision about the rest of missing data. It might be ideal to use a strong imputation method like multiple imputation to get rid of missingness. However, since this was beyond the scope of this project, we decided to simply omit missing data from our analysis. Removing the remainder missing data still resulted in a sample size of 19642 which should have enough power for our modeling purposes.
+
+After removing the missing data, we can split the dataset into training and test sets. We will usee this training set to train all our models and evaluate their performances on the test set.
+
+```{r}
+# Remove all remaining NAs
+trainingwithoutNA = na.omit(training)
+
+# Create training and testing sets for this project
+set.seed(56)
+train_index = createDataPartition(paste(trainingwithoutNA$seasonal_vaccine, trainingwithoutNA$h1n1_vaccine, sep = ""), p = 0.60, list=FALSE)
+model_train = trainingwithoutNA[train_index,]
+model_test =  trainingwithoutNA[-train_index,]
+```
+
+Now that we have our training and test set, we make sure our categorical variables are correctly formatted as factors. 
+
+```{r}
+# Relevel the age_group and income poverty. Age group is already in correct order
+model_train$income_poverty <- 
+  factor(model_train$income_poverty, 
+         levels = c("Below Poverty", "<= $75,000, Above Poverty", "> $75,000"))
+
+model_train$education <- 
+  factor(model_train$education, 
+         levels = c("< 12 Years", "12 Years", "Some College", "College Graduate"))
+
+model_train$age_group <- as.factor(model_train$age_group)
+
+model_train <- model_train %>%
+  mutate(seasonal_vaccine= as_factor(seasonal_vaccine),h1n1_vaccine= as_factor(h1n1_vaccine))
+
+model_train <- model_train %>%
+  mutate_if(sapply(model_train, is.character), as.factor)
+
+
+# Repeat the factorization for the test set
+model_test$income_poverty <- 
+  factor(model_test$income_poverty, 
+         levels = c("Below Poverty", "<= $75,000, Above Poverty", "> $75,000"))
+
+model_test$education <- 
+  factor(model_test$education, 
+         levels = c("< 12 Years", "12 Years", "Some College", "College Graduate"))
+
+model_test$age_group <- as.factor(model_test$age_group)
+
+model_test <- model_test %>%
+  mutate(seasonal_vaccine= as_factor(seasonal_vaccine),h1n1_vaccine= as_factor(h1n1_vaccine))
+
+model_test <- model_test %>%
+  mutate_if(sapply(model_test, is.character), as.factor)
+
+```
+
+
+We also divide our training set into one dataset for seasonal vaccine prediction and another dataset for h1n1 vaccine prediction.
+
+```{r}
+# Restrict the data so that it's directly relevant to the seasonal vaccine or the h1n1 vaccine
+seasonal_train <- 
+  model_train %>%
+  dplyr::select(-h1n1_vaccine, -respondent_id)
+
+seasonal_test <-
+  model_test %>%
+  dplyr::select(-h1n1_vaccine, -respondent_id)
+
+h1n1_train <- 
+  model_train %>%
+  dplyr::select(-seasonal_vaccine, -respondent_id)
+
+h1n1_test <-
+  model_test %>%
+  dplyr::select(-seasonal_vaccine, -respondent_id)
+```
+
+Now that our datasets are ready, we will move on to using different modeling techniques and evaluating their performances on our test set.
+
+# Analysis
+
+We evaluate each method's performance, first on seasonal flu vaccine prediction and then on h1n1 vaccine prediction.
+
+## Seasonal Flu Vaccination Classification
+
+## Full Logistic Regression Model for Seasonal Flu
+
+We begin by conducting a logistic regression model for seasonal vaccine. Recall that since our response is binary (either they got the vaccine or they didn't), a logistic model would allow us to calculate the probability they got the vaccine given their specified attributes. 
+
+Given the nature of the data, as shown in the EDA, all the predictors will be used in our model (with `safe_behavior` instead of the 5 individual behavior variables). From the correlation plot, we observe that there does not appear to be any highly correlated variables, thus there is no fear of multicollinearity. Additionally, since the predictors are either nominal (male or female), ordinal (level of education), or on a scale (opinions), there is no fear of outliers. Since the sample size is large as well, we proceed onwards comfortably. 
+
+To begin, we consider all the predictors (excluding `h1n1_vaccine`) in the model for `seasonal_vaccine`. While we attempted to include interactions for `age_group` and the doctor recommendation variables, the overall test accuracy decreased, so they were not included. Since including all pairwise interactions would have resulted in thousands of predictors, they were not considered. 
+
+Excluding the intercept, we observe a total of 44 predictors, 24 of which are significant at the 0.05 level of significance.  
+
+For predictions, we will consider the standard cutoff of 0.5. Without removing any of the model predictors, we observe the following confusion matrix for the training data: 
+
+
+```{r}
+# Fit logistic reg on full data
+Full_glm <- 
+  glm(seasonal_vaccine~., data = seasonal_train, family = binomial)
+
+summary(Full_glm)
+#length(coef(Full_glm)) # Check the number of coefficients
+```
+
+```{r fig.cap = 'Seasonal Vaccine - Training Data Logistic Regression'}
+# Full GLM Model training error rates
+
+# Get the number of rows
+n_train <- nrow(seasonal_train)
+
+# Store the predictions on the existing data
+glm.probs <- predict(Full_glm, type = 'response')
+
+# Determine predictions
+glm.pred <- rep(0, n_train)
+glm.pred[glm.probs > .5] <- 1
+
+# Generate confusion matrix
+table(glm.pred, seasonal_train$seasonal_vaccine)
+```
+
+
+```{r}
+# Proportion of correct responses
+mean(glm.pred == seasonal_train$seasonal_vaccine)
+
+# Proportion correct if you just pick 0 each time - 52%
+mean(0 == seasonal_train$seasonal_vaccine)
+```
+
+This model has a training accuracy of 78.7%, not bad! Thus, we proceed onwards to check the accuracy on new data - the testing set. Applied to the testing data, we observe the following table: 
+
+### Full logistic regression model performance on test set for seasonal flu
+
+```{r}
+# Get the number of rows
+n_test <- nrow(seasonal_test)
+
+# Store the predictions on the existing data
+glm.probs <- predict(Full_glm, newdata = seasonal_test,type = 'response')
+
+# Determine predictions
+glm.pred <- rep(0, n_test)
+glm.pred[glm.probs > .5] <- 1
+
+# Generate confusion matrix
+table(glm.pred, seasonal_test$seasonal_vaccine)
+```
+
+
+
+
+
+```{r}
+# Proportion of correct responses
+mean(glm.pred == seasonal_test$seasonal_vaccine)
+
+# Proportion correct if you just pick 0 each time - 52%
+mean(0 == seasonal_test$seasonal_vaccine)
+
+# Sensitivity
+2789 / (2789 + 966)
+
+# Specificity
+3323 / (3323 + 778)
+```
+
+Applied to the testing set, the accuracy dips slightly to 77.8%. While this model seems to have more false negatives than false positives, the overall accuracy seems fairly good. Nevertheless, we proceed onwards to check for a potentially more effective model. 
+
+### Lasso for Seasonal Flu
+
+Since the full logistic regression has so many predictors, we want to explore ways to conduct variable selection. Thus, we begin with a LASSO logistic regression. 
+
+Recall that for a LASSO regression, additional variables are penalized. Thus, for variables that do not add much contribution, their coefficients are shrunk to 0.
+
+For our model, we will begin with 10-fold cross validation to determine the optimal lambda (determining the penalty level for additional variables). We note that as the optimal value is 0.000286, it is extremely close to the normal logistic regression (lambda = 0). Thus, no variables are removed, and the testing and training error rates is the same with only one decimal value. 
+
+The training confusion matrix is the following, extremely close to the logistic regression model: 
+
+
+```{r}
+# Reference: http://www.sthda.com/english/articles/36-classification-methods-essentials/149-penalized-logistic-regression-essentials-in-r-ridge-lasso-and-elastic-net/
+
+set.seed(14) 
+
+x <- model.matrix(seasonal_vaccine~., seasonal_train)[,-1]
+y <- seasonal_train$seasonal_vaccine
+
+
+cv.lasso <- cv.glmnet(x, y, alpha = 1, family = "binomial")
+
+lasso_model <- glmnet(x, y, alpha = 1, family = "binomial",
+                lambda = cv.lasso$lambda.min)
+
+coef(lasso_model)
+```
+
+
+```{r}
+# Store the predictions on the existing data
+lasso_train_probs <- predict(lasso_model, newx = x, type = 'response')
+
+# Determine predictions
+lasso_train_pred <- ifelse(lasso_train_probs > 0.5, 1, 0)
+
+# Generate confusion matrix
+table(lasso_train_pred, seasonal_train$seasonal_vaccine)
+mean(lasso_train_pred == seasonal_train$seasonal_vaccine)
+```
+
+The training accuracy waas 78.7%. Now, let's evaluate its performance on test set.
+
+### Lasso performance on test set for seasonal flu
+
+```{r}
+# Make predictions on the test data
+x_testing <- model.matrix(seasonal_vaccine~., seasonal_test)[,-1]
+lasso_probs <- predict(lasso_model, newx = x_testing)
+
+lasso_pred <- ifelse(lasso_probs > 0.5, 1, 0)
+
+# Generate confusion matrix
+table(lasso_pred, seasonal_test$seasonal_vaccine)
+
+# Accuracy
+mean(lasso_pred == seasonal_test$seasonal_vaccine)
+
+# Sensitivity
+2391 / (2391 + 1364)
+
+# Specificity
+3614 / (3614 + 487)
+```
+
+The test accuracy is 76.4%, worse than the logistic regression model. It seems that while the training rates have remained consistent, predictions on new data have changed for the worse. 
+
+### Ridge for seasonal Flu
+
+As a natural follow-up to the LASSO, we examine the a ridge logistic regression model. 
+
+Compared to the LASSO, no variables are completely removed from the model. Instead, predictors that do not contribute much are shrunken *close* to 0. 
+
+We repeat the process with 10-fold cross validation. Here, we observe an optimal lambda value of 0.0212, so while it is still extremely close to 0, it does suggest that there may be some differences from the previous two models. 
+
+```{r}
+set.seed(14) 
+
+cv_ridge <- cv.glmnet(x, y, alpha = 0, family = "binomial")
+
+ridge_model <- glmnet(x, y, alpha = 0, family = "binomial",
+                lambda = cv_ridge$lambda.min)
+
+coef(ridge_model)
+```
+
+
+```{r}
+# Store the predictions on the existing data
+ridge_train_probs <- predict(ridge_model, newx = x, type = 'response')
+
+# Determine predictions
+ridge_train_pred <- ifelse(ridge_train_probs > 0.5, 1, 0)
+
+# Generate confusion matrix
+table(ridge_train_pred, seasonal_train$seasonal_vaccine)
+
+# Accuracy
+mean(ridge_train_pred == seasonal_train$seasonal_vaccine)
+```
+
+From the training data confusion matrix, we note that this model seems to accurately predict true vaccines less than the previous models. The overall accuracy has also slightly decreased to 78.5% from 78.7%, although it definitely is a small change. The real question will be the accuracy on the testing data set. 
+
+### Ridge performance on test set for seasonal flu
+
+```{r}
+# Make predictions on the test data
+x_testing <- model.matrix(seasonal_vaccine~., seasonal_test)[,-1]
+ridge_probs <- predict(ridge_model, newx = x_testing)
+
+ridge_pred <- ifelse(ridge_probs > 0.5, 1, 0)
+
+# Generate confusion matrix
+table(ridge_pred, seasonal_test$seasonal_vaccine)
+
+# Accuracy
+mean(ridge_pred == seasonal_test$seasonal_vaccine)
+
+# Sensitivity
+2315 / (2315 + 1440)
+
+# Specificity
+3641 / (3641 + 460)
+```
+
+From the testing data confusion matrix, we can calculate the accuracy to 75.8%. This is worse than both the logistic regression and the LASSO model, so we proceed onwards. 
+
+
+### Quadratic Discriminant Analysis for seasonal Flu
+
+Next, we want to consider a Quadratic Discriminant Analysis (QDA). Compared to an LDA, which would give the same results as the logistic regression, a QDA allows for unique covariance matrices and creates a quadratic relationship between the predictor and response. If there is a non-linear relationship between seasonal vaccines and the predictors, this model could provide better rates than the previous ones!
+
+
+After fitting all the variables, same as the logistic regression, we observe the following confusion matrix for the training data: 
+
+
+```{r}
+# Fit the QDA
+qda.fit <- qda(seasonal_vaccine~., data = seasonal_train)
+qda.pred <- predict(qda.fit, seasonal_train)
+qda.class <- qda.pred$class
+```
+
+```{r}
+# Confusion Matrix
+table(qda.class, seasonal_train$seasonal_vaccine)
+
+# Accuracy
+mean(qda.class == seasonal_train$seasonal_vaccine)
+```
+
+The training accuracy is 74.8%, which is lower than all the previous models, but nevertheless we continue onwards. 
+
+Here, we have the testing confusion matrix: 
+
+### QDA performance on test set for seasonal flu
+
+```{r echo = F}
+# Fit the QDA
+qda_test_pred <- predict(qda.fit, seasonal_test)
+qda_test_class <- qda_test_pred$class
+
+# Confusion Matrix
+table(qda_test_class, seasonal_test$seasonal_vaccine)
+
+# Accuracy
+mean(qda_test_class == seasonal_test$seasonal_vaccine)
+
+# Sensitivity
+2776 / (2776 + 979)
+
+# Specificity
+2878 / (2878 + 1223)
+```
+
+The testing accuracy rate has further decreased to 72%. However, we do note that this model seems to over-predict vaccinations, while the previous models under-predicted. Nevertheless, as the model seems to perform relatively poorly, we will not continue with this model. 
+
+Next, we'll look at whether tree-based methods work better for this classification problem.
+
+
+### Tree-based methods for seasonal flu
+
+Trees are some of the most intuitive prediction methods. They are simple yet effective. They use simple decision rules to differentiate an observation into different segments based on the predictors. We can then use these decision rules to classify new data into segments and use the training observations in these segments to make predictions for the new data. In addition to using a tree to classify our response variables, we can also use other tree-based methods like bagging, random forest and boosting to create multiple trees and then combine them for improved performance.
+
+We will evaluate each tree-based method's performance for seasonal flu vaccination here.
+
+### Tree for seasonal flu
+
+Tree is the simplest tree-based method. We use all 26 potential predictors to create the tree.
+
+
+```{r, warning=F}
+tree_seasonal <- tree(seasonal_vaccine~.,seasonal_train)
+
+plot(tree_seasonal)
+
+text(tree_seasonal,pretty=0)
+```
+
+Above, we can see what the tree looks like. Our tree only uses 3 variables for this classification of seasonal flu vaccination: `opinion_seas_risk`, `doctor_recc_seasonal` and `opinion_seas_vacc_effective`.
+
+We can see below how accurately this tree performs on the training set.
+
+```{r, warning=F}
+tree.pred=predict(tree_seasonal,seasonal_train,type="class")
+
+# Confusion matrix for the tree
+table(tree.pred, seasonal_train$seasonal_vaccine)
+
+# Proportion of correct predictions in training set
+mean(tree.pred== seasonal_train$seasonal_vaccine)
+```
+
+It looks like an accuracy of 73.4% is better than chance. However, an error rate of 26.6% is still not great. We can look into ways to prune this tree to see if it can lead to improved performance.
+
+### Pruned Tree for seasonal flu
+
+We can use cross-validation to determine what sized tree might be best for our purposes. We will use misclassification rate tog guide the cross-validation.
+
+```{r, warning=F}
+cv_tree_seasonal <-cv.tree(tree_seasonal,FUN=prune.misclass)
+
+names(cv_tree_seasonal)
+cv_tree_seasonal
+
+par(mfrow=c(1,2))
+
+plot(cv_tree_seasonal$size,cv_tree_seasonal$dev,type="b")
+
+```
+
+From the output above, it looks like cross-validation error is lowest when the tree size is 5 or 6. A tree of size 6 is the original tree we started with. So, it doesn't seem that using size of 5 or 6 will give much different results but let's try using a tree of size 5.
+
+```{r, warning=FALSE}
+prune_tree_seasonal=prune.misclass(tree_seasonal,best=5)
+
+prunetree.pred=predict(prune_tree_seasonal,seasonal_train,type="class")
+
+# Confusion matrix for the tree
+table(prunetree.pred, seasonal_train$seasonal_vaccine)
+
+# Proportion of correct predictions in training set
+mean(prunetree.pred== seasonal_train$seasonal_vaccine)
+```
+
+Once again, we get an accuracy of 73.4%. This suggests that pruning the above tree doesn't really affect the performance and they lead to the exact same predictions. Therefore, let's just look at the test set performance of the full tree.
+
+### Tree model performance on test set for seasonal flu
+
+```{r, warning=FALSE}
+tree.pred.test=predict(tree_seasonal,seasonal_test,type="class")
+
+# Confusion matrix for the tree
+table(tree.pred.test, seasonal_test$seasonal_vaccine)
+
+# Proportion of correct predictions in test set
+mean(tree.pred.test== seasonal_test$seasonal_vaccine)
+
+# Sensitivity
+2578/(2578+1177)
+
+# Specificity
+3169/(3169+932)
+```
+
+The tree has test set accuracy of 73.2% (test error rate of 26.8%). It also performs worse when predicting vaccinations compared to non-vaccinations.
+
+Based on these analysis, it doesn't look like using a tree would be a great option. However, we can still use other techniques to combine different trees and evaluate whether these combinations are better fit for this data.
+
+### Bagging for seasonal flu
+
+One of the techniques to combine multiple trees is bagging. With this technique we can train a large number of trees from the same training data using bootstrapping and then combine them to create a model with reduced variance in comparison with a single tree.
+
+```{r, warning=FALSE}
+set.seed(56)
+
+# Bagging for seasonal flu
+bag_seasonal <- randomForest(seasonal_vaccine~.,seasonal_train, mtry=26,importance=TRUE)
+bag_seasonal
+```
+
+We can see that bagging results in a out of bag (OOB) error rate of just 22.7% (accuracy of 77.3%), which is much better than 26.8% training error rate we got for the pruned and unpruned trees. This suggests that this model might perform better on test set.
+
+
+### Bagged model performance on test set for seasonal flu
+
+```{r, warning=FALSE}
+set.seed(56)
+bag.pred.test=predict(bag_seasonal,seasonal_test,type="class")
+
+# Confusion matrix for the bagged model
+table(bag.pred.test, seasonal_test$seasonal_vaccine)
+
+# Proportion of correct predictions in test set
+mean(bag.pred.test== seasonal_test$seasonal_vaccine)
+
+# Sensitivity
+2808/(2808+947)
+
+# Specificity
+3245/(3245+856)
+
+```
+
+The bagging model has a test set accuracy of 77% (test error rate of 23%).
+
+### Random Forest for seasonal flu
+
+We used mtry=26 for bagging so that all available features were considered for each split of the tree. Instead of using all 26 features at each of the step, we could also only use a select few chosen randomly each time. This will ensure that a few very important features don't get selected for every single tree causing moderately important features to be able to have an effect. This is what random forest models do. 
+
+For our random forest model, we are going to use the default mtry value, which is square root of 26 (around 5). Let's see if that improves our performance.
+
+```{r, warning=FALSE}
+set.seed(56)
+
+# Random Forest for seasonal flu
+rf_seasonal <- randomForest(seasonal_vaccine~.,seasonal_train, importance=TRUE)
+rf_seasonal
+```
+
+Here, we can see that using random forest with 500 trees and 5 random features considered at each split results in an out of bag (OOB) error rate of 21.6% (an accuracy of 78.4%) which is better than the error rate obtained using the bagging method.
+
+
+
+Now let's evaluate this model's performance on test set.
+
+### Random Forest model performance on test set for seasonal flu
+
+```{r, warning=FALSE}
+set.seed(56)
+rf.pred.test=predict(rf_seasonal,seasonal_test,type="class")
+
+# Confusion matrix for the random forest
+table(rf.pred.test, seasonal_test$seasonal_vaccine)
+
+# Proportion of correct predictions in test set
+mean(rf.pred.test== seasonal_test$seasonal_vaccine)
+
+# Sensitivity
+2830/(2830+925)
+
+# Specificity
+3278/(3278+823)
+```
+
+The random forest model had a test set accuracy of 77.8% (a test error rate of 22.2%). It also had a pretty good accuracy for both vaccinations (0.753) and non-vaccinations (0.799).
+
+### Boosting for seasonal flu
+
+We can also use boosting as a method to improve performance using multiple trees. While bagging and random forest methods train multiple trees that are independent of each other, generalized boosted models grow trees sequentially, i.e. using information from the previous trees. 
+
+Here, we used a generalized boosted model with 5000 trees. Shrinkage value of 0.01 and interaction depth of 1 usually work well with most kinds of data so we are sticking with these tuning parameters for the model. A 5-fold cross-validation was also conducted to determine the optimal number of trees.
+
+```{r, warning=FALSE}
+set.seed(56)
+
+# Generalized Boosted Modeling for seasonal flu
+boost_seasonal <- gbm(seasonal_vaccine~.,(seasonal_train %>% mutate(seasonal_vaccine=as.integer(levels(seasonal_vaccine)[seasonal_vaccine]))), distribution = "bernoulli",n.trees=5000,interaction.depth=1,shrinkage=0.01,cv.folds=5)
+boost_seasonal
+```
+
+Our cross-validation suggested that the most optimal number of trees to use for this data would be 4997. 
+
+Let's evaluate this model's performance on the test set.
+
+### Boosted model performance on test set for seasonal flu
+
+```{r, warning=FALSE}
+set.seed(56)
+boost.pred.test=predict(boost_seasonal,seasonal_test,type="response",n.trees=4997)
+
+boost.pred.test = round(boost.pred.test)
+
+# Confusion matrix for the boosted model
+table(boost.pred.test, (seasonal_test %>% mutate(seasonal_vaccine=as.integer(levels(seasonal_vaccine)[seasonal_vaccine])))$seasonal_vaccine)
+
+# Proportion of correct predictions in test set
+mean(boost.pred.test== (seasonal_test %>% mutate(seasonal_vaccine=as.integer(levels(seasonal_vaccine)[seasonal_vaccine])))$seasonal_vaccine)
+
+# Sensitivity
+2789/(2789+966)
+
+# Specificity
+3326/(3326+775)
+```
+
+Here, we see that our boosted model with 4997 trees resulted in a test set accuracy of 77.8% (test error rate of 22.2%).
+
+Now that we have looked at multiple tree-based methods and their performances on our test set, it looks like the random forest model and generalized boosted model fit the data the best when we are predicting seasonal flu vaccination. They both had the same overall test set accuracy. However, the boosted model was slightly better at predicting non-vaccinations than the random forest model (81.1% for boosted vs 79.9% for random forest) whereas it was the opposite way for predicting vaccinations (74.3% for boosted model vs 75.4% for random forest model). Our main goal is to get great overall accuracy. Since the two models had the same overall accuracy, then the random forest model might be the best tree-based model if we prefer increased vaccination accuracy more than increased non-vaccination accuracy.
+
+
+### Support Vector Machines for seasonal flu
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## H1N1 Flu Vaccination Classification
+
+Next, we repeat the same process for the H1N1 vaccine.
+
+### Full Logistic Regression Model for H1N1
+
+Just like the seasonal vaccine, we begin with a logistic regression model with all the predictors included. However, instead of 24 of the 44 total predictors (excluding intercept) being significant, only 19 of the predictors are significant at the .05 level for thie model. 
+
+Again using the probability of 0.5 for prediction cutoffs, we observe the following training confusion matrix: 
+
+```{r}
+# Fit logistic reg on full data
+Full_glm <- 
+  glm(h1n1_vaccine~., data = h1n1_train, family = binomial)
+
+summary(Full_glm)
+```
+
+```{r}
+# Store the predictions on the existing data
+glm.probs <- predict(Full_glm, type = 'response')
+
+# Determine predictions
+glm.pred <- rep(0, n_train)
+glm.pred[glm.probs > .5] <- 1
+
+# Generate confusion matrix
+table(glm.pred, h1n1_train$h1n1_vaccine)
+
+# Proportion of correct responses
+mean(glm.pred == h1n1_train$h1n1_vaccine)
+
+# Proportion correct if you just pick 0 each time - 77%
+mean(0 == h1n1_train$h1n1_vaccine)
+```
+
+This model has a training accuracy of 83%, better than the seasonal vaccine rates! However, we do note that generally speaking, there are far more observations in this set that did not get vaccinated. Even the naive model has an accuracy rate of 77% here. Thus, we proceed onwards to the testing confusion matrix below:  
+
+### Full logistic regression performance on test set for h1n1 flu
+
+```{r}
+# Store the predictions on the existing data
+glm.probs <- predict(Full_glm, newdata = h1n1_test,type = 'response')
+
+# Determine predictions
+glm.pred <- rep(0, n_test)
+glm.pred[glm.probs > .5] <- 1
+
+# Generate confusion matrix
+table(glm.pred, h1n1_test$h1n1_vaccine)
+```
+
+```{r}
+# Proportion of correct responses
+mean(glm.pred == h1n1_test$h1n1_vaccine)
+
+# Proportion correct if you just pick 0 each time - 52%
+mean(0 == h1n1_test$h1n1_vaccine)
+
+# Sensitivity
+862 / (862 + 943)
+
+# specificity
+5664 / (5664 + 387)
+```
+
+Applied to the testing set, the accuracy increases slightly to 83.1%. This seems to be a pretty good result, as the naive model has a 77% accuracy rate. However, as noted before, this model does include more insignificant variables. In fact, our prediction accuracy for vaccinations is just 47.8%. We proceed onwards to the lasso and ridge models to see if there will be any variable selection. 
+
+## Lasso for H1N1 
+
+Just like before, we will begin with 10-fold cross validation to determine the optimal lambda. We note that as the optimal value is 0.000909, also close to the normal logistic regression (lambda = 0). 
+
+However, unlike the LASSO for seasonal vaccine, 6 predictors are removed from this model. This includes two variables for region (kbazzjca and lrircsnp), the medium level income (income_poverty<= $75,000, Above Poverty), those who have 12 years of school or some college, and those aged between 35 - 44 Years.
+
+The training confusion matrix becomes the following: 
+
+
+```{r}
+set.seed(14) 
+
+x <- model.matrix(h1n1_vaccine~., h1n1_train)[,-1]
+y <- h1n1_train$h1n1_vaccine
+
+
+cv.lasso <- cv.glmnet(x, y, alpha = 1, family = "binomial")
+
+lasso_model <- glmnet(x, y, alpha = 1, family = "binomial",
+                lambda = cv.lasso$lambda.min)
+
+coef(lasso_model)
+```
+
+
+```{r}
+# Store the predictions on the existing data
+lasso_train_probs <- predict(lasso_model, newx = x, type = 'response')
+
+# Determine predictions
+lasso_train_pred <- ifelse(lasso_train_probs > 0.5, 1, 0)
+
+# Generate confusion matrix
+table(lasso_train_pred, h1n1_train$h1n1_vaccine)
+
+# Accuracy
+mean(lasso_train_pred == h1n1_train$h1n1_vaccine)
+```
+
+The training accuracy is 82.9%, a slight decrease compared to the logistic regression model. 
+
+### Lasso performance on test set for h1n1 flu
+
+```{r}
+# Make predictions on the test data
+x_testing <- model.matrix(h1n1_vaccine~., h1n1_test)[,-1]
+lasso_probs <- predict(lasso_model, newx = x_testing)
+
+lasso_pred <- ifelse(lasso_probs > 0.5, 1, 0)
+
+# Generate confusion matrix
+table(lasso_pred, h1n1_test$h1n1_vaccine)
+
+# Accuracy
+mean(lasso_pred == h1n1_test$h1n1_vaccine)
+
+# Sensitivity
+604 / (604 + 1201)
+
+# Specificity
+5846 / (5846 + 205)
+```
+
+The testing accuracy is 82.1%, also lower than the logistic regression. 
+
+## Ridge for H1N1
+
+Continuing onwards to the ridge logistic regression, the 10-fold cross validation suggests that the optimal lambda value is 0.0166. 
+
+```{r}
+set.seed(14) 
+
+cv_ridge <- cv.glmnet(x, y, alpha = 0, family = "binomial")
+
+ridge_model <- glmnet(x, y, alpha = 0, family = "binomial",
+                lambda = cv_ridge$lambda.min)
+
+coef(ridge_model)
+```
+
+ 
+
+```{r}
+# Store the predictions on the existing data
+ridge_train_probs <- predict(ridge_model, newx = x, type = 'response')
+
+# Determine predictions
+ridge_train_pred <- ifelse(ridge_train_probs > 0.5, 1, 0)
+
+# Generate confusion matrix
+table(ridge_train_pred, h1n1_train$h1n1_vaccine)
+
+# Accuracy
+mean(ridge_train_pred == h1n1_train$h1n1_vaccine)
+```
+
+From the training data confusion matrix, we note that the accuracy is about the same as the LASSO, a rate of about 82.8%.
+
+### Ridge performance on test set for h1n1 flu
+
+```{r}
+# Make predictions on the test data
+x_testing <- model.matrix(h1n1_vaccine~., h1n1_test)[,-1]
+ridge_probs <- predict(ridge_model, newx = x_testing)
+
+ridge_pred <- ifelse(ridge_probs > 0.5, 1, 0)
+
+# Generate confusion matrix
+table(ridge_pred, h1n1_test$h1n1_vaccine)
+
+# Accuracy
+mean(ridge_pred == h1n1_test$h1n1_vaccine)
+
+# Sensitivity
+547 / (547 + 1258)
+
+# Specificity
+5872 / (5872 + 179)
+```
+
+From the testing data confusion matrix, we can calculate the accuracy to be 81.7%. Again, it exhibits the same pattern as the seasonal vaccine, where ridge has again performed the worse compared to the logistic regression and the LASSO. 
+
+
+## QDA for H1N1
+
+Next, we want to consider QDA for a potential quadratic relationship with `h1n1_vaccine`. 
+
+
+After fitting all the variables, same as the logistic regression, we observe the following confusion matrix for the training data: 
+
+
+```{r}
+# Fit the QDA
+qda.fit <- qda(h1n1_vaccine~., data = h1n1_train)
+qda.pred <- predict(qda.fit, h1n1_train)
+qda.class <- qda.pred$class
+
+```
+
+
+```{r}
+# Confusion Matrix
+table(qda.class, h1n1_train$h1n1_vaccine)
+
+# Accuracy
+mean(qda.class == h1n1_train$h1n1_vaccine)
+```
+
+The training accuracy is 79.4%, which is again lower than all the previous models.
+
+Here, we have the testing confusion matrix: 
+
+### QDA performance on test set for h1n1 flu
+
+```{r}
+# Fit the QDA
+qda_test_pred <- predict(qda.fit, h1n1_test)
+qda_test_class <- qda_test_pred$class
+
+# Confusion Matrix
+table(qda_test_class, h1n1_test$h1n1_vaccine)
+
+# Accuracy
+mean(qda_test_class == h1n1_test$h1n1_vaccine)
+
+# Sensitivity
+1108 / (1108 + 697)
+
+# Specificity
+5016 / (5016 + 1035)
+```
+
+The testing accuracy rate has further decreased to 78%. It would appear that just like the seasonal vaccine, the three linear approaches used previously fit the data much better. Although we should note that this model is more sensitive but less specific than the previous models.
+
+Now, just like before, we will see whether the tree-based methods result in better predictions.
+
+### Tree-based methods for H1N1
+
+### Tree for h1n1
+
+Here, we create a simple tree for h1n1 vaccination classification.
+
+```{r, warning=F}
+tree_h1n1 <- tree(h1n1_vaccine~.,h1n1_train)
+
+plot(tree_h1n1)
+
+text(tree_h1n1,pretty=0)
+```
+
+Above, we can see what the tree looks like. Our tree only uses 4 variables for this classification: `opinion_h1n1_risk`, `doctor_recc_h1n1`,  `opinion_h1n1_vacc_effective`, and `health_worker`.
+
+We can see below how accurately this tree performs on the training set.
+
+```{r, warning=F}
+tree.pred=predict(tree_h1n1,h1n1_train,type="class")
+
+# Confusion matrix for the tree
+table(tree.pred, h1n1_train$h1n1_vaccine)
+
+# Proportion of correct predictions in training set
+mean(tree.pred== h1n1_train$h1n1_vaccine)
+```
+
+It looks like we get an accuracy of 81.5% (an error rate of 18.5%), which is pretty good. Let's see if pruning this tree can lead to improved performance.
+
+### Pruned Tree for h1n1
+
+Just like before, we use misclassification rate to guide the cross-validation to determine the optimal size of the pruned tree.
+
+```{r, warning=F}
+cv_tree_h1n1 <-cv.tree(tree_h1n1,FUN=prune.misclass)
+
+names(cv_tree_h1n1)
+cv_tree_h1n1
+
+par(mfrow=c(1,2))
+
+plot(cv_tree_h1n1$size,cv_tree_h1n1$dev,type="b")
+
+```
+
+From the output above, it looks like cross-validation error is lowest when the tree size is 5 or 6. A tree of size 6 is the original tree we started with so, let's just try using a tree of size 5.
+
+```{r, warning=FALSE}
+prune_tree_h1n1=prune.misclass(tree_h1n1,best=5)
+
+prunetree.pred=predict(prune_tree_h1n1,h1n1_train,type="class")
+
+# Confusion matrix for the tree
+table(prunetree.pred, h1n1_train$h1n1_vaccine)
+
+# Proportion of correct predictions in training set
+mean(prunetree.pred== h1n1_train$h1n1_vaccine)
+```
+
+Once again, we get an accuracy of 81.5%. This suggests that pruning the above tree doesn't really affect the performance and they lead to the exact same predictions. Therefore, we just look at the test set performance of the full tree.
+
+### Tree model performance on test set for h1n1
+
+```{r, warning=FALSE}
+tree.pred.test.h1n1=predict(tree_h1n1,h1n1_test,type="class")
+
+# Confusion matrix for the tree
+table(tree.pred.test.h1n1, h1n1_test$h1n1_vaccine)
+
+# Proportion of correct predictions in training set
+mean(tree.pred.test.h1n1== h1n1_test$h1n1_vaccine)
+
+# Sensitivity
+674 / (674 + 1131)
+
+# specificity
+5722 / (5722 + 329)
+
+```
+
+The tree has test set accuracy of 81.4% (test error rate of 18.6%). It predicts vaccinations accurately 37.3% of the time, which is worse than the full logistic regression model.
+
+Next we attempt bagging trees.
+
+### Bagging for h1n1
+
+```{r, warning=FALSE}
+set.seed(56)
+
+# Bagging for h1n1
+bag_h1n1 <- randomForest(h1n1_vaccine~.,h1n1_train, mtry=26,importance=TRUE)
+bag_h1n1
+```
+
+We can see that bagging results in an out of bag (OOB) error rate of just 17.5% (accuracy of 82.5%), which is better than 18.5% training error rate we got for the pruned and unpruned trees.
+
+### Bagged model performance on test set for h1n1
+
+```{r, warning=FALSE}
+set.seed(56)
+bag.pred.test.h1n1=predict(bag_h1n1,h1n1_test,type="class")
+
+# Confusion matrix for the bagged model
+table(bag.pred.test.h1n1, h1n1_test$h1n1_vaccine)
+
+# Proportion of correct predictions in training set
+mean(bag.pred.test.h1n1== h1n1_test$h1n1_vaccine)
+
+# Sensitivity
+856 / (856 + 949)
+
+# specificity
+5629 / (5629 + 422)
+```
+
+The bagging model has a test set accuracy of 82.5% (test error rate of 17.5%). This model predicts h1n1 vaccinations with accuracy of 47.4% while non-vaccinations have an accuracy of 93%.
+
+
+
+### Random Forest for h1n1
+
+```{r, warning=FALSE}
+set.seed(56)
+
+# Random Forest for h1n1
+rf_h1n1 <- randomForest(h1n1_vaccine~.,h1n1_train, importance=TRUE)
+rf_h1n1
+```
+
+Here, we can see that using random forest with 500 trees and 5 random features considered at each split results in an out of bag (OOB) error rate of 17.2% (an accuracy of 82.8%) which is slightly better than the error rate obtained using the bagging method.
+
+Now let's evaluate this model's performance on test set.
+
+### Random Forest model performance on test set for h1n1
+
+```{r, warning=FALSE}
+set.seed(56)
+rf.pred.test.h1n1=predict(rf_h1n1,h1n1_test,type="class")
+
+# Confusion matrix for the random forest
+table(rf.pred.test.h1n1, h1n1_test$h1n1_vaccine)
+
+# Proportion of correct predictions in training set
+mean(rf.pred.test.h1n1== h1n1_test$h1n1_vaccine)
+
+# Sensitivity
+825 / (825 + 980)
+
+# specificity
+5694 / (5694 + 357)
+```
+
+The random forest model had a test set accuracy of 83% (a test error rate of 17%).
+
+### Boosting for h1n1
+
+We can also use boosting and evaluate its performance. A 5-fold cross-validation was also conducted to determine the optimal number of trees.
+
+```{r, warning=FALSE}
+set.seed(56)
+
+# Boosting for h1n1
+boost_h1n1 <- gbm(h1n1_vaccine~.,(h1n1_train %>% mutate(h1n1_vaccine=as.integer(levels(h1n1_vaccine)[h1n1_vaccine]))), distribution = "bernoulli",n.trees=5000,interaction.depth=1,shrinkage=0.01,cv.folds=5)
+boost_h1n1
+```
+
+Our cross-validation suggested that the most optimal number of trees to use for this data would be 3911. 
+
+Let's evaluate this models performance on the test set.
+
+### Boosted model performance on test set for h1n1
+
+```{r, warning=FALSE}
+set.seed(56)
+boost.pred.test.h1n1=predict(boost_h1n1,h1n1_test,type="response",n.trees=3911)
+
+boost.pred.test.h1n1 = round(boost.pred.test.h1n1)
+
+# Confusion matrix for the boosted model
+table(boost.pred.test.h1n1, (h1n1_test %>% mutate(h1n1_vaccine=as.integer(levels(h1n1_vaccine)[h1n1_vaccine])))$h1n1_vaccine)
+
+# Proportion of correct predictions in training set
+mean(boost.pred.test.h1n1== (h1n1_test %>% mutate(h1n1_vaccine=as.integer(levels(h1n1_vaccine)[h1n1_vaccine])))$h1n1_vaccine)
+
+# Sensitivity
+855 / (855 + 950)
+
+# specificity
+5663 / (5663 + 388)
+```
+
+Here, we see that our boosted model with 3911 trees resulted in a test set accuracy of 83% (test error rate of 17%).
+
+Overall, it looks like the random forest and the boosted models were the best performing tree-based model with regards to h1n1 vaccination prediction.
+
+### SVM for H1N1
+
+
+
+
+
+
+## Comparing all models
+
+
+### Seasonal Flu Vaccination Models
+
+Considering a logistic regression, LASSO, ridge, and QDA model, it seemed that the logistic regression model with all the predictors included seemed to perform the best. It had a testing accuracy of 77.8%, a sensitivity of 74.3%, and a specificity of 81%. Not bad!
+
+
+
+
+# H1N1 Vaccination Models
+
+Considering a logistic regression, LASSO, ridge, and QDA model, it seemed that the logistic regression model with all the predictors included seemed to perform the best for the H1N1 vaccine prediction. It had a testing accuracy of 83.1%, a sensitivity of 26.8%, and a specificity of 94.1%. The low sensitivity is certainly a much greater concern for this model, and suggests that this model predicts true negatives (no vaccines) much more accurately than for true positives. If given the opportunity, adjusting the prediction threshold away from 0.5 may lead to better results. 
+
+
+
+
+# Conclusions
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Appendix
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
