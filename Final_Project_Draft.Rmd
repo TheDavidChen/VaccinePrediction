@@ -11,8 +11,9 @@ Vaccines have proven an effective way to protect people against certain viral di
 
 This data for this project comes from a contest hosted by DrivenData.  The goal of the contest is to predict how likely individuals are to receive two vaccines: the H1N1 and seasonal flu.  The data was collected through the National 2009 H1N1 Flu Survey.  A number of belief, behavior, and demographic factors were collected and used to create models to predict whether the individual received one, both, or neither of the vaccines.
 
+Since we are dealing with 2 classification problems, we explored the classification methods from the class. Specifically, we looked at regression methods, tree-based methods and support vector machines. We compared the test set results of all these methods and found that some of them worked well while others did not. We found that logistic regression, generalized boosted modeling and random forest methods performed the best overall. For seasonal vaccination prediction, they had overall test set accuracies of 77.8%, 77.8%, and 77.9% respectively. For h1n1 vaccination prediction, they had overall test set accuracies of 83.1%, 83%, and 83% respectively.
 
--------------------------------
+Due to the large number of observations, it wasn't computationally feasible for us to evaluate some of the modeling techniques thoroughly. In the future, if we decide on making official submission to the competition, we will consider using cluster computing services offered by Penn State to further improve upon our models.
 
 
 # Data
@@ -33,7 +34,7 @@ library(glmnet)       # Penalized logistic regression
 library(tree)         # For trees
 library(randomForest) # For Random Forest
 library(gbm)          # For Generalized Boosted Models
-library(ROCR)         # For ROC curves
+library(e1071)        # For Support Vector Machines
 
 # Read in data
 Raw_data <- 
@@ -108,23 +109,23 @@ training %>%
     theme(text = element_text(size=12), axis.text.x = element_text(angle=45, hjust=1))
 ```
 
-- From the plot above, we can see that the distribution of data by age group is not skewed (almost uniform) so we have enough data from each age group. 
+- From the plot above, we can see that the distribution of data by `age_group` is not skewed (almost uniform) so we have enough data from each age group. 
 
-- The census_msa plot shows that most of our respondents live in a metropolitan statistical area (MSA) as defined by the US Census, with only about 6000 in Non-MSA.
+- The `census_msa` plot shows that most of our respondents live in a metropolitan statistical area (MSA) as defined by the US Census, with only about 6000 in Non-MSA.
 
-- From the chronic_med_condition plot, we can see that most participants do not have chronic conditions but there are around 5000 participants who do have such conditions.
+- From the `chronic_med_condition` plot, we can see that most participants do not have chronic conditions but there are around 5000 participants who do have such conditions.
 
-- Based on the education plot, it looks like most of our respondents have at least some college education. We do have 1407 missing education values though.
+- Based on the `education` plot, it looks like most of our respondents have at least some college education. We do have 1407 missing education values though.
 
 - We can also see that most of our respondents are either employed or not in the labor force. Respondents not in the labor force are not employed and have stopped looking for work. Only a small number of respondents are unemployed and looking for a job. We also have 1463 missing values here.
 
-- The health_worker plot shows that overwhelming majority of respondents in our sample do not work in healthcare.
+- The `health_worker` plot shows that overwhelming majority of respondents in our sample do not work in healthcare.
 
 - Even though our data doesn't specify the name of the geographical region, it looks like we have decent representation from all 10 geographical regions.
 
 - The household variables suggest that most of the respondents live in a household either by themselves or with one other adult. Most of the respondents also have no children in the household with very few respondents having an infant under 6 months of age.
 
-- The income data suggests that most respondents are above poverty but make less than 75,000 USD per year. There are few participants who are below poverty. We also have 4423 missing values, which may be a big chunk for our modeling.
+- The `income_poverty` data suggests that most respondents are above poverty but make less than 75,000 USD per year. There are few participants who are below poverty. We also have 4423 missing values, which may be a big chunk for our modeling.
 
 - The respondents are about equally distributed based on marital status. 
 
@@ -231,9 +232,9 @@ corrplot(nondemocorr, method="number", number.cex = .7)
 ```
 
 
-It looks like behavioral variables seem to be positively correlated with each other. It might be possible to reduce the number of variables if we combine the behavioral variables together such that this new variable will indicate the number of safe behaviors a respondent adhered to. A "safe_behaviors" variable could just add variables from behavioral_antiviral_meds to behavioral_touch_face.
+It looks like behavioral variables seem to be positively correlated with each other. It might be possible to reduce the number of variables if we combine the behavioral variables together such that this new variable will indicate the number of safe behaviors a respondent adhered to. A `safe_behaviors` variable could just add variables from `behavioral_antiviral_meds` to `behavioral_touch_face`.
 
-Also, doctor_recc_h1n1 and doctor_recc_seasonal, which represent whether the respondent's doctor recommended h1n1 or seasonal vaccine, also seem to be strongly positively correlated. This probably supports our earlier finding that respondents who get seasonal flu vaccines are more likely to get vaccinated for h1n1 as well.
+Also, `doctor_recc_h1n1` and `doctor_recc_seasonal`, which represent whether the respondent's doctor recommended h1n1 or seasonal vaccine, also seem to be strongly positively correlated. They also seem to be somewhat correlated with the vaccination response variables. This probably supports our earlier finding that respondents who get seasonal flu vaccines are more likely to get vaccinated for h1n1 as well.
 
 Opinion variables also seem to be correlated with each other but since they touch on different aspects of the two diseases (like risks, vaccine effectiveness, etc), it doesn't make sense to combine them directly. We should consider including them as they are.
 
@@ -262,7 +263,7 @@ It looks like this newly created variable is pretty normally distributed. We rem
 
 For the purposes of this project, we are evaluating multiple classification methods that we learned during the last semester. There are many instances where missing data can impact a model's performance. This is especially an issue if there is missing data for a large chunk of observations. We already decided to not include 3 variables that had almost half missing data rate. Even without these variables, we needed to make a decision about the rest of missing data. It might be ideal to use a strong imputation method like multiple imputation to get rid of missingness. However, since this was beyond the scope of this project, we decided to simply omit missing data from our analysis. Removing the remainder missing data still resulted in a sample size of 19642 which should have enough power for our modeling purposes.
 
-After removing the missing data, we can split the dataset into training and test sets. We will usee this training set to train all our models and evaluate their performances on the test set.
+After removing the missing data, we can split the dataset into training and test sets. We will usee this training set to train all our models and evaluate their performances on the test set. We do a 60-40 stratified split such that 60% of the overall data are in the training set while also making sure that each of the training and test set have equal representation of our 2 response variables.
 
 ```{r}
 # Remove all remaining NAs
@@ -589,7 +590,7 @@ Here, we have the testing confusion matrix:
 
 ### QDA performance on test set for seasonal flu
 
-```{r echo = F}
+```{r}
 # Fit the QDA
 qda_test_pred <- predict(qda.fit, seasonal_test)
 qda_test_class <- qda_test_pred$class
@@ -777,7 +778,7 @@ mean(rf.pred.test== seasonal_test$seasonal_vaccine)
 3278/(3278+823)
 ```
 
-The random forest model had a test set accuracy of 77.8% (a test error rate of 22.2%). It also had a pretty good accuracy for both vaccinations (0.753) and non-vaccinations (0.799).
+The random forest model had a test set accuracy of 77.7% (a test error rate of 22.3%). It also had a pretty good accuracy for both vaccinations (0.754) and non-vaccinations (0.799).
 
 ### Boosting for seasonal flu
 
@@ -820,14 +821,33 @@ mean(boost.pred.test== (seasonal_test %>% mutate(seasonal_vaccine=as.integer(lev
 
 Here, we see that our boosted model with 4997 trees resulted in a test set accuracy of 77.8% (test error rate of 22.2%).
 
-Now that we have looked at multiple tree-based methods and their performances on our test set, it looks like the random forest model and generalized boosted model fit the data the best when we are predicting seasonal flu vaccination. They both had the same overall test set accuracy. However, the boosted model was slightly better at predicting non-vaccinations than the random forest model (81.1% for boosted vs 79.9% for random forest) whereas it was the opposite way for predicting vaccinations (74.3% for boosted model vs 75.4% for random forest model). Our main goal is to get great overall accuracy. Since the two models had the same overall accuracy, then the random forest model might be the best tree-based model if we prefer increased vaccination accuracy more than increased non-vaccination accuracy.
+Now that we have looked at multiple tree-based methods and their performances on our test set, it looks like the generalized boosted model fits the data the best when we are predicting seasonal flu vaccination. We should note that this performance was only slightly better than random forest model's. Comparing these 2 tree-based models, the boosted model was slightly better at predicting non-vaccinations than the random forest model (81.1% for boosted vs 79.9% for random forest) whereas it was the opposite way for predicting vaccinations (74.3% for boosted model vs 75.4% for random forest model).
 
 
 ### Support Vector Machines for seasonal flu
 
+```{r}
+#SVC
+set.seed(140)
 
+svc.fit <- svm(seasonal_vaccine~., data=seasonal_train,kernel="linear",cost=0.01)
+summary(svc.fit)
+```
 
+```{r}
+train.pred <- predict(svc.fit, seasonal_train)
+table(seasonal_train$seasonal_vaccine,train.pred)
 
+mean(seasonal_train$seasonal_vaccine==train.pred)
+
+```
+
+```{r}
+test.pred <- predict(svc.fit, seasonal_test)
+table(model_test$seasonal_vaccine, test.pred)
+mean(model_test$seasonal_vaccine== test.pred)
+
+```
 
 
 
@@ -1292,16 +1312,34 @@ Overall, it looks like the random forest and the boosted models were the best pe
 
 ### Seasonal Flu Vaccination Models
 
-Considering a logistic regression, LASSO, ridge, and QDA model, it seemed that the logistic regression model with all the predictors included seemed to perform the best. It had a testing accuracy of 77.8%, a sensitivity of 74.3%, and a specificity of 81%. Not bad!
+Below, we see the test set results for each model that was used to predict test set seasonal flu vaccinations.
+
+```{r, warning=FALSE}
+seasonalflu_results_table <- data.frame(Methods = c("Full logistic regression","Lasso","Ridge","QDA","Tree","Bagged trees","Random Forest","Generalized Boosted Model","Support Vector Classifier","Radial SVM","Polynomial SVM"))
+
+seasonalflu_results_table <- results_table %>% mutate("Overall Accuracy"=c(0.778,0.764,0.758,0.72,0.732,0.77,0.777,0.778,0,0,0),"Sensitivity"=c(0.743,0.637,0.617,0.739,0.687,0.748,0.754,0.743,0,0,0),"Specificity"=c(0.81,0.881,0.888,0.702,0.773,0.791,0.799,0.811,0,0,0))
+
+kable(seasonalflu_results_table %>% arrange(desc(`Overall Accuracy`)))
+```
+
+From the table above, we can see that full logistic regression and generalized boosted models that we created were the most accurate overall. The generalized boosted model may have a slight edge here since it has a slightly higher specificity. We should note that the performances of the full logistic regression, generalized boosted model and the random forest model were comparable with each other. The other methods did not seem to work well with this specific classification problem. 
 
 
+### H1N1 Vaccination Models
 
+Next, let's compare the test results for each model that was used to predict test set h1n1 vaccinations.
 
-# H1N1 Vaccination Models
+```{r, warning=FALSE}
+h1n1flu_results_table <- data.frame(Methods = c("Full logistic regression","Lasso","Ridge","QDA","Tree","Bagged trees","Random Forest","Generalized Boosted Model","Support Vector Classifier","Radial SVM","Polynomial SVM"))
 
-Considering a logistic regression, LASSO, ridge, and QDA model, it seemed that the logistic regression model with all the predictors included seemed to perform the best for the H1N1 vaccine prediction. It had a testing accuracy of 83.1%, a sensitivity of 26.8%, and a specificity of 94.1%. The low sensitivity is certainly a much greater concern for this model, and suggests that this model predicts true negatives (no vaccines) much more accurately than for true positives. If given the opportunity, adjusting the prediction threshold away from 0.5 may lead to better results. 
+h1n1flu_results_table <- results_table %>% mutate("Overall Accuracy"=c(0.831,0.821,0.817,0.78,0.814,0.825,0.83,0.83,0,0,0),"Sensitivity"=c(0.478,0.335,0.303,0.614,0.373,0.474,0.457,0.474,0,0,0),"Specificity"=c(0.936,0.966,0.97,0.829,0.946,0.93,0.941,0.936,0,0,0))
 
+kable(h1n1flu_results_table %>% arrange(desc(`Overall Accuracy`)))
+```
 
+From this table, we can see that once again full logistic regression, random forest and generalized boosted models gave the best results. Even though logistic regression's performance was a little better overall, the other 2 models had comparable performances. 
+
+Since these 3 methods performed well for our classification problems, if we were to proceed forward with further investigations for the competition, we should stick with one of these methods.
 
 
 # Conclusions

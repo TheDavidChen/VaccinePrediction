@@ -373,6 +373,7 @@ summary {
 <h1>Introduction</h1>
 <p>Vaccines have proven an effective way to protect people against certain viral diseases, but not everyone gets the vaccines that are available. There are some legitimate reasons people cannot get a vaccine (e.g. compromised immunity or allergy to an ingredient) that cannot be overcome, but other people avoid vaccines without these reasons.</p>
 <p>This data for this project comes from a contest hosted by DrivenData. The goal of the contest is to predict how likely individuals are to receive two vaccines: the H1N1 and seasonal flu. The data was collected through the National 2009 H1N1 Flu Survey. A number of belief, behavior, and demographic factors were collected and used to create models to predict whether the individual received one, both, or neither of the vaccines.</p>
+<p>Since we are dealing with 2 classification problems, we explored the classification methods from the class. Specifically, we looked at regression methods, tree-based methods and support vector machines. We compared the test set results of all these methods and found that some of them worked well while others did not.</p>
 <hr />
 </div>
 <div id="data" class="section level1">
@@ -391,7 +392,7 @@ library(glmnet)       # Penalized logistic regression
 library(tree)         # For trees
 library(randomForest) # For Random Forest
 library(gbm)          # For Generalized Boosted Models
-library(ROCR)         # For ROC curves
+library(e1071)        # For Support Vector Machines
 
 # Read in data
 Raw_data &lt;- 
@@ -762,7 +763,57 @@ train_index = createDataPartition(paste(trainingwithoutNA$seasonal_vaccine, trai
 model_train = trainingwithoutNA[train_index,]
 model_test =  trainingwithoutNA[-train_index,]</code></pre>
 <p>Now that we have our training and test set, we make sure our categorical variables are correctly formatted as factors.</p>
+<pre class="r"><code># Relevel the age_group and income poverty. Age group is already in correct order
+model_train$income_poverty &lt;- 
+  factor(model_train$income_poverty, 
+         levels = c(&quot;Below Poverty&quot;, &quot;&lt;= $75,000, Above Poverty&quot;, &quot;&gt; $75,000&quot;))
+
+model_train$education &lt;- 
+  factor(model_train$education, 
+         levels = c(&quot;&lt; 12 Years&quot;, &quot;12 Years&quot;, &quot;Some College&quot;, &quot;College Graduate&quot;))
+
+model_train$age_group &lt;- as.factor(model_train$age_group)
+
+model_train &lt;- model_train %&gt;%
+  mutate(seasonal_vaccine= as_factor(seasonal_vaccine),h1n1_vaccine= as_factor(h1n1_vaccine))
+
+model_train &lt;- model_train %&gt;%
+  mutate_if(sapply(model_train, is.character), as.factor)
+
+
+# Repeat the factorization for the test set
+model_test$income_poverty &lt;- 
+  factor(model_test$income_poverty, 
+         levels = c(&quot;Below Poverty&quot;, &quot;&lt;= $75,000, Above Poverty&quot;, &quot;&gt; $75,000&quot;))
+
+model_test$education &lt;- 
+  factor(model_test$education, 
+         levels = c(&quot;&lt; 12 Years&quot;, &quot;12 Years&quot;, &quot;Some College&quot;, &quot;College Graduate&quot;))
+
+model_test$age_group &lt;- as.factor(model_test$age_group)
+
+model_test &lt;- model_test %&gt;%
+  mutate(seasonal_vaccine= as_factor(seasonal_vaccine),h1n1_vaccine= as_factor(h1n1_vaccine))
+
+model_test &lt;- model_test %&gt;%
+  mutate_if(sapply(model_test, is.character), as.factor)</code></pre>
 <p>We also divide our training set into one dataset for seasonal vaccine prediction and another dataset for h1n1 vaccine prediction.</p>
+<pre class="r"><code># Restrict the data so that it&#39;s directly relevant to the seasonal vaccine or the h1n1 vaccine
+seasonal_train &lt;- 
+  model_train %&gt;%
+  dplyr::select(-h1n1_vaccine, -respondent_id)
+
+seasonal_test &lt;-
+  model_test %&gt;%
+  dplyr::select(-h1n1_vaccine, -respondent_id)
+
+h1n1_train &lt;- 
+  model_train %&gt;%
+  dplyr::select(-seasonal_vaccine, -respondent_id)
+
+h1n1_test &lt;-
+  model_test %&gt;%
+  dplyr::select(-seasonal_vaccine, -respondent_id)</code></pre>
 <p>Now that our datasets are ready, we will move on to using different modeling techniques and evaluating their performances on our test set.</p>
 </div>
 </div>
@@ -779,6 +830,11 @@ model_test =  trainingwithoutNA[-train_index,]</code></pre>
 <p>To begin, we consider all the predictors (excluding <code>h1n1_vaccine</code>) in the model for <code>seasonal_vaccine</code>. While we attempted to include interactions for <code>age_group</code> and the doctor recommendation variables, the overall test accuracy decreased, so they were not included. Since including all pairwise interactions would have resulted in thousands of predictors, they were not considered.</p>
 <p>Excluding the intercept, we observe a total of 44 predictors, 24 of which are significant at the 0.05 level of significance.</p>
 <p>For predictions, we will consider the standard cutoff of 0.5. Without removing any of the model predictors, we observe the following confusion matrix for the training data:</p>
+<pre class="r"><code># Fit logistic reg on full data
+Full_glm &lt;- 
+  glm(seasonal_vaccine~., data = seasonal_train, family = binomial)
+
+summary(Full_glm)</code></pre>
 <pre><code>## 
 ## Call:
 ## glm(formula = seasonal_vaccine ~ ., family = binomial, data = seasonal_train)
@@ -890,17 +946,62 @@ model_test =  trainingwithoutNA[-train_index,]</code></pre>
 ## AIC: 11132
 ## 
 ## Number of Fisher Scoring iterations: 5</code></pre>
+<pre class="r"><code>#length(coef(Full_glm)) # Check the number of coefficients</code></pre>
+<pre class="r"><code># Full GLM Model training error rates
+
+# Get the number of rows
+n_train &lt;- nrow(seasonal_train)
+
+# Store the predictions on the existing data
+glm.probs &lt;- predict(Full_glm, type = &#39;response&#39;)
+
+# Determine predictions
+glm.pred &lt;- rep(0, n_train)
+glm.pred[glm.probs &gt; .5] &lt;- 1
+
+# Generate confusion matrix
+table(glm.pred, seasonal_train$seasonal_vaccine)</code></pre>
 <pre><code>##         
 ## glm.pred    0    1
 ##        0 4991 1354
 ##        1 1162 4279</code></pre>
+<pre class="r"><code># Proportion of correct responses
+mean(glm.pred == seasonal_train$seasonal_vaccine)</code></pre>
+<pre><code>## [1] 0.787</code></pre>
+<pre class="r"><code># Proportion correct if you just pick 0 each time - 52%
+mean(0 == seasonal_train$seasonal_vaccine)</code></pre>
+<pre><code>## [1] 0.522</code></pre>
 <p>This model has a training accuracy of 78.7%, not bad! Thus, we proceed onwards to check the accuracy on new data - the testing set. Applied to the testing data, we observe the following table:</p>
 <div id="full-logistic-regression-model-performance-on-test-set-for-seasonal-flu" class="section level3">
 <h3>Full logistic regression model performance on test set for seasonal flu</h3>
+<pre class="r"><code># Get the number of rows
+n_test &lt;- nrow(seasonal_test)
+
+# Store the predictions on the existing data
+glm.probs &lt;- predict(Full_glm, newdata = seasonal_test,type = &#39;response&#39;)
+
+# Determine predictions
+glm.pred &lt;- rep(0, n_test)
+glm.pred[glm.probs &gt; .5] &lt;- 1
+
+# Generate confusion matrix
+table(glm.pred, seasonal_test$seasonal_vaccine)</code></pre>
 <pre><code>##         
 ## glm.pred    0    1
 ##        0 3323  966
 ##        1  778 2789</code></pre>
+<pre class="r"><code># Proportion of correct responses
+mean(glm.pred == seasonal_test$seasonal_vaccine)</code></pre>
+<pre><code>## [1] 0.778</code></pre>
+<pre class="r"><code># Proportion correct if you just pick 0 each time - 52%
+mean(0 == seasonal_test$seasonal_vaccine)</code></pre>
+<pre><code>## [1] 0.522</code></pre>
+<pre class="r"><code># Sensitivity
+2789 / (2789 + 966)</code></pre>
+<pre><code>## [1] 0.743</code></pre>
+<pre class="r"><code># Specificity
+3323 / (3323 + 778)</code></pre>
+<pre><code>## [1] 0.81</code></pre>
 <p>Applied to the testing set, the accuracy dips slightly to 77.8%. While this model seems to have more false negatives than false positives, the overall accuracy seems fairly good. Nevertheless, we proceed onwards to check for a potentially more effective model.</p>
 </div>
 <div id="lasso-for-seasonal-flu" class="section level3">
@@ -909,6 +1010,20 @@ model_test =  trainingwithoutNA[-train_index,]</code></pre>
 <p>Recall that for a LASSO regression, additional variables are penalized. Thus, for variables that do not add much contribution, their coefficients are shrunk to 0.</p>
 <p>For our model, we will begin with 10-fold cross validation to determine the optimal lambda (determining the penalty level for additional variables). We note that as the optimal value is 0.000286, it is extremely close to the normal logistic regression (lambda = 0). Thus, no variables are removed, and the testing and training error rates is the same with only one decimal value.</p>
 <p>The training confusion matrix is the following, extremely close to the logistic regression model:</p>
+<pre class="r"><code># Reference: http://www.sthda.com/english/articles/36-classification-methods-essentials/149-penalized-logistic-regression-essentials-in-r-ridge-lasso-and-elastic-net/
+
+set.seed(14) 
+
+x &lt;- model.matrix(seasonal_vaccine~., seasonal_train)[,-1]
+y &lt;- seasonal_train$seasonal_vaccine
+
+
+cv.lasso &lt;- cv.glmnet(x, y, alpha = 1, family = &quot;binomial&quot;)
+
+lasso_model &lt;- glmnet(x, y, alpha = 1, family = &quot;binomial&quot;,
+                lambda = cv.lasso$lambda.min)
+
+coef(lasso_model)</code></pre>
 <pre><code>## 45 x 1 sparse Matrix of class &quot;dgCMatrix&quot;
 ##                                              s0
 ## (Intercept)                             -5.6901
@@ -956,21 +1071,44 @@ model_test =  trainingwithoutNA[-train_index,]</code></pre>
 ## household_adults                        -0.0359
 ## household_children                      -0.0288
 ## safe_behaviors                           0.0221</code></pre>
+<pre class="r"><code># Store the predictions on the existing data
+lasso_train_probs &lt;- predict(lasso_model, newx = x, type = &#39;response&#39;)
+
+# Determine predictions
+lasso_train_pred &lt;- ifelse(lasso_train_probs &gt; 0.5, 1, 0)
+
+# Generate confusion matrix
+table(lasso_train_pred, seasonal_train$seasonal_vaccine)</code></pre>
 <pre><code>##                 
 ## lasso_train_pred    0    1
 ##                0 4992 1355
 ##                1 1161 4278</code></pre>
+<pre class="r"><code>mean(lasso_train_pred == seasonal_train$seasonal_vaccine)</code></pre>
 <pre><code>## [1] 0.787</code></pre>
 <p>The training accuracy waas 78.7%. Now, let’s evaluate its performance on test set.</p>
 </div>
 <div id="lasso-performance-on-test-set-for-seasonal-flu" class="section level3">
 <h3>Lasso performance on test set for seasonal flu</h3>
+<pre class="r"><code># Make predictions on the test data
+x_testing &lt;- model.matrix(seasonal_vaccine~., seasonal_test)[,-1]
+lasso_probs &lt;- predict(lasso_model, newx = x_testing)
+
+lasso_pred &lt;- ifelse(lasso_probs &gt; 0.5, 1, 0)
+
+# Generate confusion matrix
+table(lasso_pred, seasonal_test$seasonal_vaccine)</code></pre>
 <pre><code>##           
 ## lasso_pred    0    1
 ##          0 3614 1364
 ##          1  487 2391</code></pre>
+<pre class="r"><code># Accuracy
+mean(lasso_pred == seasonal_test$seasonal_vaccine)</code></pre>
 <pre><code>## [1] 0.764</code></pre>
+<pre class="r"><code># Sensitivity
+2391 / (2391 + 1364)</code></pre>
 <pre><code>## [1] 0.637</code></pre>
+<pre class="r"><code># Specificity
+3614 / (3614 + 487)</code></pre>
 <pre><code>## [1] 0.881</code></pre>
 <p>The test accuracy is 76.4%, worse than the logistic regression model. It seems that while the training rates have remained consistent, predictions on new data have changed for the worse.</p>
 </div>
@@ -979,6 +1117,14 @@ model_test =  trainingwithoutNA[-train_index,]</code></pre>
 <p>As a natural follow-up to the LASSO, we examine the a ridge logistic regression model.</p>
 <p>Compared to the LASSO, no variables are completely removed from the model. Instead, predictors that do not contribute much are shrunken <em>close</em> to 0.</p>
 <p>We repeat the process with 10-fold cross validation. Here, we observe an optimal lambda value of 0.0212, so while it is still extremely close to 0, it does suggest that there may be some differences from the previous two models.</p>
+<pre class="r"><code>set.seed(14) 
+
+cv_ridge &lt;- cv.glmnet(x, y, alpha = 0, family = &quot;binomial&quot;)
+
+ridge_model &lt;- glmnet(x, y, alpha = 0, family = &quot;binomial&quot;,
+                lambda = cv_ridge$lambda.min)
+
+coef(ridge_model)</code></pre>
 <pre><code>## 45 x 1 sparse Matrix of class &quot;dgCMatrix&quot;
 ##                                               s0
 ## (Intercept)                             -4.79379
@@ -1026,21 +1172,45 @@ model_test =  trainingwithoutNA[-train_index,]</code></pre>
 ## household_adults                        -0.07220
 ## household_children                      -0.07379
 ## safe_behaviors                           0.02631</code></pre>
+<pre class="r"><code># Store the predictions on the existing data
+ridge_train_probs &lt;- predict(ridge_model, newx = x, type = &#39;response&#39;)
+
+# Determine predictions
+ridge_train_pred &lt;- ifelse(ridge_train_probs &gt; 0.5, 1, 0)
+
+# Generate confusion matrix
+table(ridge_train_pred, seasonal_train$seasonal_vaccine)</code></pre>
 <pre><code>##                 
 ## ridge_train_pred    0    1
 ##                0 5004 1385
 ##                1 1149 4248</code></pre>
+<pre class="r"><code># Accuracy
+mean(ridge_train_pred == seasonal_train$seasonal_vaccine)</code></pre>
 <pre><code>## [1] 0.785</code></pre>
 <p>From the training data confusion matrix, we note that this model seems to accurately predict true vaccines less than the previous models. The overall accuracy has also slightly decreased to 78.5% from 78.7%, although it definitely is a small change. The real question will be the accuracy on the testing data set.</p>
 </div>
 <div id="ridge-performance-on-test-set-for-seasonal-flu" class="section level3">
 <h3>Ridge performance on test set for seasonal flu</h3>
+<pre class="r"><code># Make predictions on the test data
+x_testing &lt;- model.matrix(seasonal_vaccine~., seasonal_test)[,-1]
+ridge_probs &lt;- predict(ridge_model, newx = x_testing)
+
+ridge_pred &lt;- ifelse(ridge_probs &gt; 0.5, 1, 0)
+
+# Generate confusion matrix
+table(ridge_pred, seasonal_test$seasonal_vaccine)</code></pre>
 <pre><code>##           
 ## ridge_pred    0    1
 ##          0 3641 1440
 ##          1  460 2315</code></pre>
+<pre class="r"><code># Accuracy
+mean(ridge_pred == seasonal_test$seasonal_vaccine)</code></pre>
 <pre><code>## [1] 0.758</code></pre>
+<pre class="r"><code># Sensitivity
+2315 / (2315 + 1440)</code></pre>
 <pre><code>## [1] 0.617</code></pre>
+<pre class="r"><code># Specificity
+3641 / (3641 + 460)</code></pre>
 <pre><code>## [1] 0.888</code></pre>
 <p>From the testing data confusion matrix, we can calculate the accuracy to 75.8%. This is worse than both the logistic regression and the LASSO model, so we proceed onwards.</p>
 </div>
@@ -1048,9 +1218,11 @@ model_test =  trainingwithoutNA[-train_index,]</code></pre>
 <h3>Quadratic Discriminant Analysis for seasonal Flu</h3>
 <p>Next, we want to consider a Quadratic Discriminant Analysis (QDA). Compared to an LDA, which would give the same results as the logistic regression, a QDA allows for unique covariance matrices and creates a quadratic relationship between the predictor and response. If there is a non-linear relationship between seasonal vaccines and the predictors, this model could provide better rates than the previous ones!</p>
 <p>After fitting all the variables, same as the logistic regression, we observe the following confusion matrix for the training data:</p>
-<pre class="r"><code># output
-
-# Confusion Matrix
+<pre class="r"><code># Fit the QDA
+qda.fit &lt;- qda(seasonal_vaccine~., data = seasonal_train)
+qda.pred &lt;- predict(qda.fit, seasonal_train)
+qda.class &lt;- qda.pred$class</code></pre>
+<pre class="r"><code># Confusion Matrix
 table(qda.class, seasonal_train$seasonal_vaccine)</code></pre>
 <pre><code>##          
 ## qda.class    0    1
@@ -1304,6 +1476,47 @@ mean(boost.pred.test== (seasonal_test %&gt;% mutate(seasonal_vaccine=as.integer(
 </div>
 <div id="support-vector-machines-for-seasonal-flu" class="section level3">
 <h3>Support Vector Machines for seasonal flu</h3>
+<pre class="r"><code>#SVC
+set.seed(140)
+
+svc.fit &lt;- svm(seasonal_vaccine~., data=seasonal_train,kernel=&quot;linear&quot;,cost=0.01)
+summary(svc.fit)</code></pre>
+<pre><code>## 
+## Call:
+## svm(formula = seasonal_vaccine ~ ., data = seasonal_train, kernel = &quot;linear&quot;, 
+##     cost = 0.01)
+## 
+## 
+## Parameters:
+##    SVM-Type:  C-classification 
+##  SVM-Kernel:  linear 
+##        cost:  0.01 
+## 
+## Number of Support Vectors:  6266
+## 
+##  ( 3132 3134 )
+## 
+## 
+## Number of Classes:  2 
+## 
+## Levels: 
+##  0 1</code></pre>
+<pre class="r"><code>train.pred &lt;- predict(svc.fit, seasonal_train)
+table(seasonal_train$seasonal_vaccine,train.pred)</code></pre>
+<pre><code>##    train.pred
+##        0    1
+##   0 5011 1142
+##   1 1391 4242</code></pre>
+<pre class="r"><code>mean(seasonal_train$seasonal_vaccine==train.pred)</code></pre>
+<pre><code>## [1] 0.785</code></pre>
+<pre class="r"><code>test.pred &lt;- predict(svc.fit, seasonal_test)
+table(model_test$seasonal_vaccine, test.pred)</code></pre>
+<pre><code>##    test.pred
+##        0    1
+##   0 3347  754
+##   1  996 2759</code></pre>
+<pre class="r"><code>mean(model_test$seasonal_vaccine== test.pred)</code></pre>
+<pre><code>## [1] 0.777</code></pre>
 </div>
 </div>
 <div id="h1n1-flu-vaccination-classification" class="section level2">
@@ -1313,6 +1526,11 @@ mean(boost.pred.test== (seasonal_test %&gt;% mutate(seasonal_vaccine=as.integer(
 <h3>Full Logistic Regression Model for H1N1</h3>
 <p>Just like the seasonal vaccine, we begin with a logistic regression model with all the predictors included. However, instead of 24 of the 44 total predictors (excluding intercept) being significant, only 19 of the predictors are significant at the .05 level for thie model.</p>
 <p>Again using the probability of 0.5 for prediction cutoffs, we observe the following training confusion matrix:</p>
+<pre class="r"><code># Fit logistic reg on full data
+Full_glm &lt;- 
+  glm(h1n1_vaccine~., data = h1n1_train, family = binomial)
+
+summary(Full_glm)</code></pre>
 <pre><code>## 
 ## Call:
 ## glm(formula = h1n1_vaccine ~ ., family = binomial, data = h1n1_train)
@@ -1424,20 +1642,54 @@ mean(boost.pred.test== (seasonal_test %&gt;% mutate(seasonal_vaccine=as.integer(
 ## AIC: 9256
 ## 
 ## Number of Fisher Scoring iterations: 5</code></pre>
+<pre class="r"><code># Store the predictions on the existing data
+glm.probs &lt;- predict(Full_glm, type = &#39;response&#39;)
+
+# Determine predictions
+glm.pred &lt;- rep(0, n_train)
+glm.pred[glm.probs &gt; .5] &lt;- 1
+
+# Generate confusion matrix
+table(glm.pred, h1n1_train$h1n1_vaccine)</code></pre>
 <pre><code>##         
 ## glm.pred    0    1
 ##        0 8532 1455
 ##        1  545 1254</code></pre>
+<pre class="r"><code># Proportion of correct responses
+mean(glm.pred == h1n1_train$h1n1_vaccine)</code></pre>
 <pre><code>## [1] 0.83</code></pre>
+<pre class="r"><code># Proportion correct if you just pick 0 each time - 77%
+mean(0 == h1n1_train$h1n1_vaccine)</code></pre>
 <pre><code>## [1] 0.77</code></pre>
 <p>This model has a training accuracy of 83%, better than the seasonal vaccine rates! However, we do note that generally speaking, there are far more observations in this set that did not get vaccinated. Even the naive model has an accuracy rate of 77% here. Thus, we proceed onwards to the testing confusion matrix below:</p>
 </div>
 <div id="full-logistic-regression-performance-on-test-set-for-h1n1-flu" class="section level3">
 <h3>Full logistic regression performance on test set for h1n1 flu</h3>
+<pre class="r"><code># Store the predictions on the existing data
+glm.probs &lt;- predict(Full_glm, newdata = h1n1_test,type = &#39;response&#39;)
+
+# Determine predictions
+glm.pred &lt;- rep(0, n_test)
+glm.pred[glm.probs &gt; .5] &lt;- 1
+
+# Generate confusion matrix
+table(glm.pred, h1n1_test$h1n1_vaccine)</code></pre>
 <pre><code>##         
 ## glm.pred    0    1
 ##        0 5664  943
 ##        1  387  862</code></pre>
+<pre class="r"><code># Proportion of correct responses
+mean(glm.pred == h1n1_test$h1n1_vaccine)</code></pre>
+<pre><code>## [1] 0.831</code></pre>
+<pre class="r"><code># Proportion correct if you just pick 0 each time - 52%
+mean(0 == h1n1_test$h1n1_vaccine)</code></pre>
+<pre><code>## [1] 0.77</code></pre>
+<pre class="r"><code># Sensitivity
+862 / (862 + 943)</code></pre>
+<pre><code>## [1] 0.478</code></pre>
+<pre class="r"><code># specificity
+5664 / (5664 + 387)</code></pre>
+<pre><code>## [1] 0.936</code></pre>
 <p>Applied to the testing set, the accuracy increases slightly to 83.1%. This seems to be a pretty good result, as the naive model has a 77% accuracy rate. However, as noted before, this model does include more insignificant variables. In fact, our prediction accuracy for vaccinations is just 47.8%. We proceed onwards to the lasso and ridge models to see if there will be any variable selection.</p>
 </div>
 </div>
@@ -1446,6 +1698,18 @@ mean(boost.pred.test== (seasonal_test %&gt;% mutate(seasonal_vaccine=as.integer(
 <p>Just like before, we will begin with 10-fold cross validation to determine the optimal lambda. We note that as the optimal value is 0.000909, also close to the normal logistic regression (lambda = 0).</p>
 <p>However, unlike the LASSO for seasonal vaccine, 6 predictors are removed from this model. This includes two variables for region (kbazzjca and lrircsnp), the medium level income (income_poverty&lt;= $75,000, Above Poverty), those who have 12 years of school or some college, and those aged between 35 - 44 Years.</p>
 <p>The training confusion matrix becomes the following:</p>
+<pre class="r"><code>set.seed(14) 
+
+x &lt;- model.matrix(h1n1_vaccine~., h1n1_train)[,-1]
+y &lt;- h1n1_train$h1n1_vaccine
+
+
+cv.lasso &lt;- cv.glmnet(x, y, alpha = 1, family = &quot;binomial&quot;)
+
+lasso_model &lt;- glmnet(x, y, alpha = 1, family = &quot;binomial&quot;,
+                lambda = cv.lasso$lambda.min)
+
+coef(lasso_model)</code></pre>
 <pre><code>## 45 x 1 sparse Matrix of class &quot;dgCMatrix&quot;
 ##                                                s0
 ## (Intercept)                             -6.534605
@@ -1493,20 +1757,44 @@ mean(boost.pred.test== (seasonal_test %&gt;% mutate(seasonal_vaccine=as.integer(
 ## household_adults                         0.009889
 ## household_children                      -0.044433
 ## safe_behaviors                          -0.050739</code></pre>
+<pre class="r"><code># Store the predictions on the existing data
+lasso_train_probs &lt;- predict(lasso_model, newx = x, type = &#39;response&#39;)
+
+# Determine predictions
+lasso_train_pred &lt;- ifelse(lasso_train_probs &gt; 0.5, 1, 0)
+
+# Generate confusion matrix
+table(lasso_train_pred, h1n1_train$h1n1_vaccine)</code></pre>
 <pre><code>##                 
 ## lasso_train_pred    0    1
 ##                0 8539 1481
 ##                1  538 1228</code></pre>
+<pre class="r"><code># Accuracy
+mean(lasso_train_pred == h1n1_train$h1n1_vaccine)</code></pre>
 <pre><code>## [1] 0.829</code></pre>
 <p>The training accuracy is 82.9%, a slight decrease compared to the logistic regression model.</p>
 <div id="lasso-performance-on-test-set-for-h1n1-flu" class="section level3">
 <h3>Lasso performance on test set for h1n1 flu</h3>
+<pre class="r"><code># Make predictions on the test data
+x_testing &lt;- model.matrix(h1n1_vaccine~., h1n1_test)[,-1]
+lasso_probs &lt;- predict(lasso_model, newx = x_testing)
+
+lasso_pred &lt;- ifelse(lasso_probs &gt; 0.5, 1, 0)
+
+# Generate confusion matrix
+table(lasso_pred, h1n1_test$h1n1_vaccine)</code></pre>
 <pre><code>##           
 ## lasso_pred    0    1
 ##          0 5846 1201
 ##          1  205  604</code></pre>
+<pre class="r"><code># Accuracy
+mean(lasso_pred == h1n1_test$h1n1_vaccine)</code></pre>
 <pre><code>## [1] 0.821</code></pre>
+<pre class="r"><code># Sensitivity
+604 / (604 + 1201)</code></pre>
 <pre><code>## [1] 0.335</code></pre>
+<pre class="r"><code># Specificity
+5846 / (5846 + 205)</code></pre>
 <pre><code>## [1] 0.966</code></pre>
 <p>The testing accuracy is 82.1%, also lower than the logistic regression.</p>
 </div>
@@ -1514,6 +1802,14 @@ mean(boost.pred.test== (seasonal_test %&gt;% mutate(seasonal_vaccine=as.integer(
 <div id="ridge-for-h1n1" class="section level2">
 <h2>Ridge for H1N1</h2>
 <p>Continuing onwards to the ridge logistic regression, the 10-fold cross validation suggests that the optimal lambda value is 0.0166.</p>
+<pre class="r"><code>set.seed(14) 
+
+cv_ridge &lt;- cv.glmnet(x, y, alpha = 0, family = &quot;binomial&quot;)
+
+ridge_model &lt;- glmnet(x, y, alpha = 0, family = &quot;binomial&quot;,
+                lambda = cv_ridge$lambda.min)
+
+coef(ridge_model)</code></pre>
 <pre><code>## 45 x 1 sparse Matrix of class &quot;dgCMatrix&quot;
 ##                                                s0
 ## (Intercept)                             -6.066655
@@ -1561,46 +1857,87 @@ mean(boost.pred.test== (seasonal_test %&gt;% mutate(seasonal_vaccine=as.integer(
 ## household_adults                         0.018782
 ## household_children                      -0.048744
 ## safe_behaviors                          -0.042298</code></pre>
+<pre class="r"><code># Store the predictions on the existing data
+ridge_train_probs &lt;- predict(ridge_model, newx = x, type = &#39;response&#39;)
+
+# Determine predictions
+ridge_train_pred &lt;- ifelse(ridge_train_probs &gt; 0.5, 1, 0)
+
+# Generate confusion matrix
+table(ridge_train_pred, h1n1_train$h1n1_vaccine)</code></pre>
 <pre><code>##                 
 ## ridge_train_pred    0    1
 ##                0 8587 1535
 ##                1  490 1174</code></pre>
+<pre class="r"><code># Accuracy
+mean(ridge_train_pred == h1n1_train$h1n1_vaccine)</code></pre>
 <pre><code>## [1] 0.828</code></pre>
 <p>From the training data confusion matrix, we note that the accuracy is about the same as the LASSO, a rate of about 82.8%.</p>
 <div id="ridge-performance-on-test-set-for-h1n1-flu" class="section level3">
 <h3>Ridge performance on test set for h1n1 flu</h3>
+<pre class="r"><code># Make predictions on the test data
+x_testing &lt;- model.matrix(h1n1_vaccine~., h1n1_test)[,-1]
+ridge_probs &lt;- predict(ridge_model, newx = x_testing)
+
+ridge_pred &lt;- ifelse(ridge_probs &gt; 0.5, 1, 0)
+
+# Generate confusion matrix
+table(ridge_pred, h1n1_test$h1n1_vaccine)</code></pre>
 <pre><code>##           
 ## ridge_pred    0    1
 ##          0 5872 1258
 ##          1  179  547</code></pre>
+<pre class="r"><code># Accuracy
+mean(ridge_pred == h1n1_test$h1n1_vaccine)</code></pre>
 <pre><code>## [1] 0.817</code></pre>
+<pre class="r"><code># Sensitivity
+547 / (547 + 1258)</code></pre>
 <pre><code>## [1] 0.303</code></pre>
+<pre class="r"><code># Specificity
+5872 / (5872 + 179)</code></pre>
 <pre><code>## [1] 0.97</code></pre>
 <p>From the testing data confusion matrix, we can calculate the accuracy to be 81.7%. Again, it exhibits the same pattern as the seasonal vaccine, where ridge has again performed the worse compared to the logistic regression and the LASSO.</p>
-<div id="section" class="section level75">
-<p></p>
-</div>
 </div>
 </div>
 <div id="qda-for-h1n1" class="section level2">
 <h2>QDA for H1N1</h2>
-<p>Lastly, we want to consider QDA for a potential quadratic relationship with <code>h1n1_vaccine</code>.</p>
+<p>Next, we want to consider QDA for a potential quadratic relationship with <code>h1n1_vaccine</code>.</p>
 <p>After fitting all the variables, same as the logistic regression, we observe the following confusion matrix for the training data:</p>
+<pre class="r"><code># Fit the QDA
+qda.fit &lt;- qda(h1n1_vaccine~., data = h1n1_train)
+qda.pred &lt;- predict(qda.fit, h1n1_train)
+qda.class &lt;- qda.pred$class</code></pre>
+<pre class="r"><code># Confusion Matrix
+table(qda.class, h1n1_train$h1n1_vaccine)</code></pre>
 <pre><code>##          
 ## qda.class    0    1
 ##         0 7591  938
 ##         1 1486 1771</code></pre>
+<pre class="r"><code># Accuracy
+mean(qda.class == h1n1_train$h1n1_vaccine)</code></pre>
 <pre><code>## [1] 0.794</code></pre>
 <p>The training accuracy is 79.4%, which is again lower than all the previous models.</p>
 <p>Here, we have the testing confusion matrix:</p>
 <div id="qda-performance-on-test-set-for-h1n1-flu" class="section level3">
 <h3>QDA performance on test set for h1n1 flu</h3>
+<pre class="r"><code># Fit the QDA
+qda_test_pred &lt;- predict(qda.fit, h1n1_test)
+qda_test_class &lt;- qda_test_pred$class
+
+# Confusion Matrix
+table(qda_test_class, h1n1_test$h1n1_vaccine)</code></pre>
 <pre><code>##               
 ## qda_test_class    0    1
 ##              0 5016  697
 ##              1 1035 1108</code></pre>
+<pre class="r"><code># Accuracy
+mean(qda_test_class == h1n1_test$h1n1_vaccine)</code></pre>
 <pre><code>## [1] 0.78</code></pre>
+<pre class="r"><code># Sensitivity
+1108 / (1108 + 697)</code></pre>
 <pre><code>## [1] 0.614</code></pre>
+<pre class="r"><code># Specificity
+5016 / (5016 + 1035)</code></pre>
 <pre><code>## [1] 0.829</code></pre>
 <p>The testing accuracy rate has further decreased to 78%. It would appear that just like the seasonal vaccine, the three linear approaches used previously fit the data much better. Although we should note that this model is more sensitive but less specific than the previous models.</p>
 <p>Now, just like before, we will see whether the tree-based methods result in better predictions.</p>
@@ -1781,7 +2118,7 @@ mean(rf.pred.test.h1n1== h1n1_test$h1n1_vaccine)</code></pre>
 <pre class="r"><code># specificity
 5694 / (5694 + 357)</code></pre>
 <pre><code>## [1] 0.941</code></pre>
-<p>The random forest model had a test set accuracy of 83% (a test error rate of 16.9%).</p>
+<p>The random forest model had a test set accuracy of 83% (a test error rate of 17%).</p>
 </div>
 <div id="boosting-for-h1n1" class="section level3">
 <h3>Boosting for h1n1</h3>
@@ -1835,7 +2172,11 @@ mean(boost.pred.test.h1n1== (h1n1_test %&gt;% mutate(h1n1_vaccine=as.integer(lev
 <h2>Comparing all models</h2>
 <div id="seasonal-flu-vaccination-models" class="section level3">
 <h3>Seasonal Flu Vaccination Models</h3>
+<p>Below, we see the test set results for each model that was used to predict test set seasonal flu vaccinations.</p>
 <p>Considering a logistic regression, LASSO, ridge, and QDA model, it seemed that the logistic regression model with all the predictors included seemed to perform the best. It had a testing accuracy of 77.8%, a sensitivity of 74.3%, and a specificity of 81%. Not bad!</p>
+<pre class="r"><code>results_table &lt;- data.frame(Methods = c(&quot;Full logistic regression&quot;,&quot;Lasso&quot;,&quot;Ridge&quot;,&quot;QDA&quot;,&quot;Tree&quot;,&quot;Bagged trees&quot;,&quot;Random Forest&quot;,&quot;Generalized Boosted Model&quot;,&quot;Support Vector Classifier&quot;,&quot;Radial SVM&quot;,&quot;Polynomial SVM&quot;))
+
+results_table &lt;- results_table %&gt;% mutate(&quot;Overall Accuracy&quot;=c())</code></pre>
 </div>
 </div>
 </div>
@@ -1843,104 +2184,11 @@ mean(boost.pred.test.h1n1== (h1n1_test %&gt;% mutate(h1n1_vaccine=as.integer(lev
 <h1>H1N1 Vaccination Models</h1>
 <p>Considering a logistic regression, LASSO, ridge, and QDA model, it seemed that the logistic regression model with all the predictors included seemed to perform the best for the H1N1 vaccine prediction. It had a testing accuracy of 83.1%, a sensitivity of 26.8%, and a specificity of 94.1%. The low sensitivity is certainly a much greater concern for this model, and suggests that this model predicts true negatives (no vaccines) much more accurately than for true positives. If given the opportunity, adjusting the prediction threshold away from 0.5 may lead to better results.</p>
 </div>
+<div id="conclusions" class="section level1">
+<h1>Conclusions</h1>
+</div>
 <div id="appendix" class="section level1">
 <h1>Appendix</h1>
-<div id="full-glm-with-interactions" class="section level2">
-<h2>Full GLM with interactions</h2>
-<pre><code>## [1] 399</code></pre>
-</div>
-<div id="full-model---lr---training-error-rates" class="section level2">
-<h2>Full model - LR - Training error rates</h2>
-<pre><code>##         
-## glm.pred    0    1
-##        0 4999 1262
-##        1 1154 4371</code></pre>
-<p>Training error rate of 79.5, compared to naive 52.2%. Not too bad!</p>
-<pre class="r"><code># Proportion of correct responses
-mean(glm.pred == seasonal_train$seasonal_vaccine)</code></pre>
-<pre><code>## [1] 0.795</code></pre>
-<pre class="r"><code># Proportion correct if you just no each time - 52%
-mean(0 == seasonal_train$seasonal_vaccine)</code></pre>
-<pre><code>## [1] 0.522</code></pre>
-</div>
-<div id="full-model---lr---testing-error-rates" class="section level2">
-<h2>Full model - LR - testing error rates</h2>
-<pre class="r"><code># Get the number of rows
-n_test &lt;- nrow(seasonal_test)
-
-# Store the predictions on the existing data
-glm.probs &lt;- predict(Full_glm, newdata = seasonal_test,type = &#39;response&#39;)
-
-# Determine predictions
-glm.pred &lt;- rep(0, n_test)
-glm.pred[glm.probs &gt; .5] &lt;- 1
-
-# Generate confusion matrix
-table(glm.pred, seasonal_test$seasonal_vaccine)</code></pre>
-<p>Applied to the testing set, the testing error rate only dips slightly to 77.9%. The naive model would have done 52.2%.</p>
-<pre class="r"><code># Proportion of correct responses
-mean(glm.pred == seasonal_test$seasonal_vaccine)
-
-# Proportion correct if you just no each time - 52%
-mean(0 == seasonal_test$seasonal_vaccine)</code></pre>
-</div>
-<div id="lasso-with-interactions" class="section level2">
-<h2>Lasso with interactions</h2>
-<pre class="r"><code># Reference: http://www.sthda.com/english/articles/36-classification-methods-essentials/149-penalized-logistic-regression-essentials-in-r-ridge-lasso-and-elastic-net/
-
-set.seed(14) 
-
-x &lt;- model.matrix(seasonal_vaccine~.*doctor_recc_seasonal*age_group, seasonal_train)[,-1]
-y &lt;- seasonal_train$seasonal_vaccine
-
-
-cv.lasso &lt;- cv.glmnet(x, y, alpha = 1, family = &quot;binomial&quot;, nfolds = 5)
-
-lasso_model &lt;- glmnet(x, y, alpha = 1, family = &quot;binomial&quot;,
-                lambda = cv.lasso$lambda.min)
-
-coef(lasso_model)</code></pre>
-<p>Training rates - 78.3%. Note that including doctor recommendation and age group did increase training rates to 0.789, but testing error rates were decreased.</p>
-<pre class="r"><code># Store the predictions on the existing data
-lasso_train_probs &lt;- predict(lasso_model, newx = x, type = &#39;response&#39;)
-
-# Determine predictions
-lasso_train_pred &lt;- ifelse(lasso_train_probs &gt; 0.5, 1, 0)
-
-# Generate confusion matrix
-table(lasso_train_pred, seasonal_train$seasonal_vaccine)
-mean(lasso_train_pred == seasonal_train$seasonal_vaccine)</code></pre>
-<p>Test rates - 76.8%. Including interactions decreased to 76.5.</p>
-<pre class="r"><code># Make predictions on the test data
-x_testing &lt;- 
-  model.matrix(seasonal_vaccine~.*doctor_recc_seasonal*age_group, seasonal_test)[,-1]
-lasso_probs &lt;- predict(lasso_model, newx = x_testing)
-
-lasso_pred &lt;- ifelse(lasso_probs &gt; 0.5, 1, 0)
-
-# Generate confusion matrix
-table(lasso_pred, seasonal_test$seasonal_vaccine)
-
-# Accuracy
-mean(lasso_pred == seasonal_test$seasonal_vaccine)</code></pre>
-<pre class="r"><code># Important predictors from Bagging for seasonal flu
-varImpPlot(bag_seasonal)
-
-# Important predictors from Random Forest for seasonal flu
-varImpPlot(rf_seasonal)
-
-# Important predictors from GBM for seasonal flu
-summary(boost_seasonal)
-
-# Important predictors from Bagging for h1n1 flu
-varImpPlot(bag_h1n1)
-
-# Important predictors from Random Forest for h1n1 flu
-varImpPlot(rf_h1n1)
-
-# Important predictors from GBM for h1n1 flu
-summary(boost_h1n1)</code></pre>
-</div>
 </div>
 
 
