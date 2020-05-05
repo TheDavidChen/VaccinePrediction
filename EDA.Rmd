@@ -364,14 +364,20 @@ set.seed(120) #Hierarchical clustering
 gower.dist <- daisy(clust_train,metric=c("gower")) #because some variables are categorical
 
 hc.avg <- hclust((gower.dist), method="average")
-hc.clusters <- cutree(hc.avg,2)
+
+plot(hc.avg) # no clear clusters visible
+
+hc.clusters <- cutree(hc.avg,5)
 table(hc.clusters, model_train$h1n1_vaccine)
 table(hc.clusters, model_train$seasonal_vaccine)
 hc.clusters <- cutree(hc.avg,6)
 table(hc.clusters, clust_train$age_group)
 
 hc.com <- hclust((gower.dist), method="complete")
-hc.clusters <- cutree(hc.com,2)
+
+plot(hc.com)
+
+hc.clusters <- cutree(hc.com,8)
 table(hc.clusters, model_train$h1n1_vaccine)
 table(hc.clusters, model_train$seasonal_vaccine)
 table(hc.clusters, clust_train$doctor_recc_h1n1)
@@ -381,6 +387,8 @@ table(hc.clusters, clust_train$age_group)
 table(hc.clusters, clust_train$race)
 
 hc.sig <- hclust((gower.dist), method="single")
+plot(hc.sig)
+
 hc.clusters <- cutree(hc.sig,2)
 table(hc.clusters, model_train$h1n1_vaccine)
 table(hc.clusters, model_train$seasonal_vaccine)
