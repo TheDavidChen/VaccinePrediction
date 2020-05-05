@@ -7,7 +7,7 @@ output: html_document
 
 # Introduction
 
-Vaccines have proven an effective way to protect people against certain viral diseases, but not everyone gets the vaccines that are available.  There are some legitimate reasons people cannot get a vaccine (e.g. compromised immunity or allergy to an ingredient) that cannot be overcome, but other people avoid vaccines without these reasons.
+Vaccines have proven to be an effective way to protect people against certain viral diseases, but not everyone gets the vaccines that are available.  There are some legitimate reasons people cannot get a vaccine (e.g. compromised immunity or allergy to an ingredient) that cannot be overcome, but other people avoid vaccines without these reasons.
 
 The data for this project comes from a contest hosted by DrivenData.  The goal of the contest is to predict how likely individuals are to receive two vaccines: the H1N1 and seasonal flu.  The data was collected through the National 2009 H1N1 Flu Survey.  A number of belief, behavior, and demographic factors were collected and used to create models to predict whether the individual received one, both, or neither of the vaccines.
 
@@ -240,7 +240,7 @@ Opinion variables also seem to be correlated with each other but since they touc
 
 Below, we create the new variable combining the behavior variables. This new variable represents the total number of healthy behaviors that the respondents adhered to (in relation to flu-like diseases).
 
-```{r, fig.height=2,fig.align = 'center', fig.cap="Histogram of the combined behaviors"}
+```{r, warning=F,fig.height=2,fig.align = 'center', fig.cap="Histogram of the combined behaviors"}
 # Create new variable combining behavioral predictors
 newvariable1 <- training %>%
   dplyr::select(behavioral_antiviral_meds:behavioral_touch_face) %>%
@@ -261,9 +261,9 @@ training %>%
 
 It looks like this newly created variable is pretty normally distributed. We removed all the behavior variables and replaced it with this newly created one.
 
-For the purposes of this project, we are evaluating multiple classification methods that we learned during the last semester. There are many instances where missing data can impact a model's performance. This is especially an issue if there is missing data for a large chunk of observations. We already decided to not include 3 variables that had almost half missing data rate. Even without these variables, we needed to make a decision about the rest of missing data. It might be ideal to use a strong imputation method like multiple imputation to get rid of missingness. However, since this was beyond the scope of this project, we decided to simply omit missing data from our analysis. Removing the remainder missing data still resulted in a sample size of 19642 which should have enough power for our modeling purposes.
+For the purposes of this project, we are evaluating multiple classification methods that we learned during the last semester. There are many instances where missing data can impact a model's performance. This is especially an issue if there is missing data for a large chunk of observations. We already decided to not include 3 variables that had almost half missing data rate. Even without these variables, we needed to make a decision about the rest of the missing data. It might be ideal to use a strong imputation method like multiple imputation to get rid of missingness. However, since this was beyond the scope of this project, we decided to simply omit missing data from our analysis. Removing the remainder missing data still resulted in a sample size of 19642 which should have enough power for our modeling purposes.
 
-To get the dataset ready for modeling, we can split the dataset into training and test sets. We will usee this training set to train all our models and evaluate their performances on the test set. We do a 60-40 stratified split such that 60% of the overall data are in the training set while also making sure that each of the training and test set have equal representation of our 2 response variables.
+To get the dataset ready for modeling, we can split the dataset into training and test sets. We will use this training set to train all our models and evaluate their performances on the test set. We do a 60-40 stratified split such that 60% of the overall data are in the training set while also making sure that each of the training and test set have equal representation of our 2 response variables.
 
 ```{r}
 # Remove all remaining NAs
@@ -356,7 +356,7 @@ Given the nature of the data, as shown in the EDA, all the predictors will be us
 
 To begin, we consider all the predictors (excluding `h1n1_vaccine`) in the model for `seasonal_vaccine`. While we attempted to include interactions for `age_group` and the doctor recommendation variables, the overall test accuracy decreased, so they were not included (see appendix). Since including all pairwise interactions would have resulted in thousands of predictors, they were not considered. 
 
-Excluding the intercept, we observe a total of 44 predictors, 24 of which are significant at the 0.05 level of significance.  
+Excluding the intercept, we observe a total of 44 predictors, 24 of which are significant at the 0.05 level of significance (the model summary is provided in the output).  
 
 For predictions, we will consider the standard cutoff of 0.5. Without removing any of the model predictors, we observe the following confusion matrix for the training data: 
 
@@ -476,7 +476,7 @@ table(lasso_train_pred, seasonal_train$seasonal_vaccine)
 mean(lasso_train_pred == seasonal_train$seasonal_vaccine)
 ```
 
-The training accuracy waas 78.7%. Now, let's evaluate its performance on test set.
+The training accuracy was 78.7%. Now, let's evaluate its performance on test set.
 
 ### Lasso performance on test set for seasonal flu
 
@@ -829,7 +829,7 @@ Now that we have looked at multiple tree-based methods and their performances on
 
 ### Support Vector Machines for seasonal flu
 
-Support vector machine (SVM) is an approach for classifying which does not have an assumption of linearity.  The one assumption required for SVM is that the variable of interest is binary.  Both variables (h1n1_vaccine and seasonal_vaccine) are binary, so the data meets this assumption. We attempted SVMs with linear, radial and polynomial kernels using default cost of 1. We were not able to tune the cost through cross-validation as the process was too computationally intensive for this project and caused more than half hour to process each. Since the default cost seemed to be working well, we stuck with it.
+Support vector machine (SVM) is an approach for classifying which does not have an assumption of linearity.  The one assumption required for SVM is that the variable of interest is binary.  Both variables (h1n1_vaccine and seasonal_vaccine) are binary, so the data meets this assumption. We attempted SVMs with linear, radial and polynomial kernels using default cost of 1. We were not able to tune the cost through cross-validation as the process was too computationally intensive for this project. Since the default cost seemed to be working well, we stuck with it.
 
 ### SVM for Seasonal Flu (linear)
 
@@ -876,7 +876,7 @@ The test prediction rate was 78%, meaning the error rate was 22%.  The specifici
 
 ### SVM for Seasonal Flu (radial)
 
-A SVM with a radial kernel allows for a class to be centralized around one point (making something like a cirle), and the other class to occupy the remaining space.  If the prediction rate is high for this model, then this would indicate that there is one centralized class.
+A SVM with a radial kernel allows for a class to be centralized around one point (making something like a circle), and the other class to occupy the remaining space.  If the prediction rate is high for this model, then this would indicate that there is one centralized class.
 
 ```{r}
 #SVM with radial kernel
@@ -972,7 +972,7 @@ Here we repeat the same processes for the H1N1 vaccine that we used for seasonal
 
 ### Full Logistic Regression Model for H1N1
 
-Just like the seasonal vaccine, we begin with a logistic regression model with all the predictors included. However, instead of 24 of the 44 total predictors (excluding intercept) being significant, only 19 of the predictors are significant at the .05 level for thie model. 
+Just like the seasonal vaccine, we begin with a logistic regression model with all the predictors included. However, instead of 24 of the 44 total predictors (excluding intercept) being significant, only 19 of the predictors are significant at the .05 level for this model (summary output is available in the Appendix). 
 
 Again using the probability of 0.5 for prediction cutoffs, we observe the following training confusion matrix: 
 
@@ -1032,7 +1032,7 @@ mean(0 == h1n1_test$h1n1_vaccine)
 5664 / (5664 + 387)
 ```
 
-Applied to the testing set, the accuracy increases slightly to 83.1%. This seems to be a pretty good result, as the naive model has a 77% accuracy rate. However, as noted before, this model does include more insignificant variables. In fact, our prediction accuracy for vaccinations is just 47.8%. We proceed onwards to the lasso and ridge models to see if there will be any variable selection. 
+Applied to the testing set, the accuracy increases slightly to 83.1%. This seems to be a pretty good result, as the naive model has a 77% accuracy rate. However, as noted before, this model does include more insignificant variables. In fact, our prediction accuracy (sensitivity) for vaccinations is just 47.8%. We proceed onwards to the lasso and ridge models to see if there will be any variable selection. 
 
 ## Lasso for H1N1 
 
@@ -1587,7 +1587,7 @@ From our analysis for this project, we were also able to identify several predic
 
 We are currently in the middle of a global pandemic of COVID-19 that has infected millions of people worldwide.  Based on our models for both seasonal flu and h1n1 vaccines, it seems likely that COVID-19 vaccination rates will also be affected by these factors. Even though we don't have a vaccine for it yet, its a good idea to plan for interventions that will increase the COVID-19 vaccination rates.
 
-Overall, our analysis provides a great stepping stone to determining how we can improve vaccination rates and thus protect the general population from contagious virus diseases.
+Overall, our analysis provides a great stepping stone to determining how we can improve vaccination rates and thus protect the general population from contagious viral diseases.
 
 
 
@@ -1622,6 +1622,28 @@ varImpPlot(rf_h1n1)
 
 # Important predictors from GBM for h1n1 flu
 summary(boost_h1n1)
+```
+
+## Model Output
+
+### Full Logistic Regression Summary for Seasonal
+```{r}
+# Fit logistic reg on full data
+Full_glm <- 
+  glm(seasonal_vaccine~., data = seasonal_train, family = binomial)
+
+summary(Full_glm)
+# length(coef(Full_glm)) # Check the number of coefficients
+```
+
+### Full Logistic Regression Summary for H1N1
+
+```{r}
+# Fit logistic reg on full data
+Full_glm_h1n1 <- 
+  glm(h1n1_vaccine~., data = h1n1_train, family = binomial)
+
+summary(Full_glm_h1n1)
 ```
 
 ## Exploratory models
