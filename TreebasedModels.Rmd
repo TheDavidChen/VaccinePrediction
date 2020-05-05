@@ -460,63 +460,6 @@ Full_glm <-
 length(coef(Full_glm))-1
 ```
 
-
-## Full model - LR - Training error rates
-
-```{r echo = F}
-# Get the number of rows
-n_train <- nrow(seasonal_train)
-
-# Store the predictions on the existing data
-glm.probs <- predict(Full_glm, type = 'response')
-
-# Determine predictions
-glm.pred <- rep(0, n_train)
-glm.pred[glm.probs > .5] <- 1
-
-# Generate confusion matrix
-table(glm.pred, seasonal_train$seasonal_vaccine)
-```
-
-Training error rate of 79.5, compared to naive 52.2%. Not too bad!
-
-```{r}
-# Proportion of correct responses
-mean(glm.pred == seasonal_train$seasonal_vaccine)
-
-# Proportion correct if you just no each time - 52%
-mean(0 == seasonal_train$seasonal_vaccine)
-
-```
-
-## Full model - LR -  testing error rates
-
-
-```{r eval = F}
-# Get the number of rows
-n_test <- nrow(seasonal_test)
-
-# Store the predictions on the existing data
-glm.probs <- predict(Full_glm, newdata = seasonal_test,type = 'response')
-
-# Determine predictions
-glm.pred <- rep(0, n_test)
-glm.pred[glm.probs > .5] <- 1
-
-# Generate confusion matrix
-table(glm.pred, seasonal_test$seasonal_vaccine)
-```
-
-
-Applied to the testing set, the testing error rate only dips slightly to 77.9%. The naive model would have done 52.2%. 
-```{r eval = F}
-# Proportion of correct responses
-mean(glm.pred == seasonal_test$seasonal_vaccine)
-
-# Proportion correct if you just no each time - 52%
-mean(0 == seasonal_test$seasonal_vaccine)
-```
-
 ## Lasso with interactions 
 ```{r eval=F}
 # Reference: http://www.sthda.com/english/articles/36-classification-methods-essentials/149-penalized-logistic-regression-essentials-in-r-ridge-lasso-and-elastic-net/
@@ -566,7 +509,7 @@ mean(lasso_pred == seasonal_test$seasonal_vaccine)
 ```
 
 
-
+## Important predictors according to tree-based methods
 
 ```{r}
 # Important predictors from Bagging for seasonal flu

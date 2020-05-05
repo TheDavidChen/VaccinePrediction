@@ -9,16 +9,16 @@ output: html_document
 
 Vaccines have proven an effective way to protect people against certain viral diseases, but not everyone gets the vaccines that are available.  There are some legitimate reasons people cannot get a vaccine (e.g. compromised immunity or allergy to an ingredient) that cannot be overcome, but other people avoid vaccines without these reasons.
 
-This data for this project comes from a contest hosted by DrivenData.  The goal of the contest is to predict how likely individuals are to receive two vaccines: the H1N1 and seasonal flu.  The data was collected through the National 2009 H1N1 Flu Survey.  A number of belief, behavior, and demographic factors were collected and used to create models to predict whether the individual received one, both, or neither of the vaccines.
+The data for this project comes from a contest hosted by DrivenData.  The goal of the contest is to predict how likely individuals are to receive two vaccines: the H1N1 and seasonal flu.  The data was collected through the National 2009 H1N1 Flu Survey.  A number of belief, behavior, and demographic factors were collected and used to create models to predict whether the individual received one, both, or neither of the vaccines.
 
-Since we are dealing with 2 classification problems, we explored the classification methods from the class. Specifically, we looked at regression methods, tree-based methods and support vector machines. We compared the test set results of all these methods and found that some of them worked well while others did not. We found that logistic regression, generalized boosted modeling and random forest methods performed the best overall. For seasonal vaccination prediction, they had overall test set accuracies of 77.8%, 77.8%, and 77.9% respectively. For h1n1 vaccination prediction, they had overall test set accuracies of 83.1%, 83%, and 83% respectively.
+Since we are dealing with 2 classification problems, we explored the classification methods from the STAT 508 course. Specifically, we looked at regression methods, tree-based methods and support vector machines (SVM). We compared the test set results of all these methods and found that some of them worked well while others did not. We found that support vector machines seemed to perform the best overall. For seasonal vaccination prediction, the radial SVM had the best overall test set accuracy of 78.3%. For h1n1 vaccination prediction, full logistic regression resulted in the best overall test set accuracy of 83.1%.
 
 Due to the large number of observations, it wasn't computationally feasible for us to evaluate some of the modeling techniques thoroughly. In the future, if we decide on making official submission to the competition, we will consider using cluster computing services offered by Penn State to further improve upon our models.
 
 
 # Data
 
-For this project, we are working with seasonal flu and swine flue (h1n1) vaccination data provided through drivendata.org (link in Appendix). We are interested in creating models to predict seasonal flu and swine flu vaccinations. We are exploring the usefulness of various modeling techniques we have learned throughout the semester in tackling this classification problem. For the purposes of this project, we will only use the training data provided, which consists of 26707 observations of 36 variables. We first load the necessary libraries, data set, and global options.
+For this project, we are working with seasonal flu and swine flue (h1n1) vaccination data provided through drivendata.org (link in Appendix). We are interested in creating models to predict seasonal flu and swine flu vaccinations. We are exploring the usefulness of various modeling techniques we have learned throughout the semester in tackling this classification problem. For the purposes of this project, we will only use the training data provided in the website, which consists of 26707 observations of 36 variables. We first load the necessary libraries, data set, and global options.
 
 ```{r warning = F, message = F}
 # Clean up R environment
@@ -207,7 +207,7 @@ training %>%
 
 ```
 
-From the frequency plots above, we can see that some of the behavioral responses like using antiviral meds and face masks very low adherence but other behavioral responses like touching avoiding contacts with others, avoiding touching face and washing hands have pretty high adherence.
+From the frequency plots above, we can see that some of the behavioral responses like using antiviral meds and face masks have very low adherence but other behavioral responses like avoiding contacts with others, avoiding touching face and washing hands have pretty high adherence.
 
 From the doctor recommendation variables, we can see that the respondents' doctors were not very likely to recommend either seasonal or h1n1 vaccines. However, they were likely to recommend seasonal vaccine more than h1n1 vaccine. These rates look similar to vaccination rates for the 2 vaccines so they may be useful predictors.
 
@@ -240,7 +240,7 @@ Opinion variables also seem to be correlated with each other but since they touc
 
 Below, we create the new variable combining the behavior variables. This new variable represents the total number of healthy behaviors that the respondents adhered to (in relation to flu-like diseases).
 
-```{r, fig.height=2,fig.align = 'center'}
+```{r, fig.height=2,fig.align = 'center', fig.cap="Histogram of the combined behaviors"}
 # Create new variable combining behavioral predictors
 newvariable1 <- training %>%
   dplyr::select(behavioral_antiviral_meds:behavioral_touch_face) %>%
@@ -290,14 +290,16 @@ model_train$education <-
 
 model_train$age_group <- as.factor(model_train$age_group)
 
+# Convert response variables to factors
 model_train <- model_train %>%
   mutate(seasonal_vaccine= as_factor(seasonal_vaccine),h1n1_vaccine= as_factor(h1n1_vaccine))
 
+# Convert character variables to factors
 model_train <- model_train %>%
   mutate_if(sapply(model_train, is.character), as.factor)
 
 
-# Repeat the factorization for the test set
+# Repeat the factorization from above for the test set
 model_test$income_poverty <- 
   factor(model_test$income_poverty, 
          levels = c("Below Poverty", "<= $75,000, Above Poverty", "> $75,000"))
@@ -350,9 +352,9 @@ We evaluate each method's performance, first on seasonal flu vaccine prediction 
 
 We begin by conducting a logistic regression model for seasonal vaccine. Recall that since our response is binary (either they got the vaccine or they didn't), a logistic model would allow us to calculate the probability they got the vaccine given their specified attributes. 
 
-Given the nature of the data, as shown in the EDA, all the predictors will be used in our model (with `safe_behavior` instead of the 5 individual behavior variables). From the correlation plot, we observe that there does not appear to be any highly correlated variables, thus there is no fear of multicollinearity. Additionally, since the predictors are either nominal (male or female), ordinal (level of education), or on a scale (opinions), there is no fear of outliers. Since the sample size is large as well, we proceed onwards comfortably. 
+Given the nature of the data, as shown in the EDA, all the predictors will be used in our model (with `safe_behavior` instead of the 7 individual behavior variables). From the correlation plot, we observe that there does not appear to be any highly correlated variables, thus there is no fear of multicollinearity. Additionally, since the predictors are either nominal (male or female), ordinal (level of education), or on a scale (opinions), there is no fear of outliers. Since the sample size is large as well, we proceed onwards comfortably. 
 
-To begin, we consider all the predictors (excluding `h1n1_vaccine`) in the model for `seasonal_vaccine`. While we attempted to include interactions for `age_group` and the doctor recommendation variables, the overall test accuracy decreased, so they were not included. Since including all pairwise interactions would have resulted in thousands of predictors, they were not considered. 
+To begin, we consider all the predictors (excluding `h1n1_vaccine`) in the model for `seasonal_vaccine`. While we attempted to include interactions for `age_group` and the doctor recommendation variables, the overall test accuracy decreased, so they were not included (see appendix). Since including all pairwise interactions would have resulted in thousands of predictors, they were not considered. 
 
 Excluding the intercept, we observe a total of 44 predictors, 24 of which are significant at the 0.05 level of significance.  
 
@@ -364,8 +366,8 @@ For predictions, we will consider the standard cutoff of 0.5. Without removing a
 Full_glm <- 
   glm(seasonal_vaccine~., data = seasonal_train, family = binomial)
 
-summary(Full_glm)
-#length(coef(Full_glm)) # Check the number of coefficients
+# summary(Full_glm)
+# length(coef(Full_glm)) # Check the number of coefficients
 ```
 
 ```{r fig.cap = 'Seasonal Vaccine - Training Data Logistic Regression'}
@@ -458,7 +460,7 @@ cv.lasso <- cv.glmnet(x, y, alpha = 1, family = "binomial")
 lasso_model <- glmnet(x, y, alpha = 1, family = "binomial",
                 lambda = cv.lasso$lambda.min)
 
-coef(lasso_model)
+# coef(lasso_model)
 ```
 
 
@@ -502,7 +504,7 @@ The test accuracy is 76.4%, worse than the logistic regression model. It seems t
 
 ### Ridge for seasonal Flu
 
-As a natural follow-up to the LASSO, we examine the a ridge logistic regression model. 
+As a natural follow-up to the LASSO, we examine a ridge logistic regression model. 
 
 Compared to the LASSO, no variables are completely removed from the model. Instead, predictors that do not contribute much are shrunken *close* to 0. 
 
@@ -516,7 +518,7 @@ cv_ridge <- cv.glmnet(x, y, alpha = 0, family = "binomial")
 ridge_model <- glmnet(x, y, alpha = 0, family = "binomial",
                 lambda = cv_ridge$lambda.min)
 
-coef(ridge_model)
+# coef(ridge_model)
 ```
 
 
@@ -624,7 +626,8 @@ We will evaluate each tree-based method's performance for seasonal flu vaccinati
 Tree is the simplest tree-based method. We use all 26 potential predictors to create the tree.
 
 
-```{r, warning=F}
+```{r, warning=F, fig.align = 'center',fig.cap="Tree predicting seasonal flu vaccination"}
+# Fit tree
 tree_seasonal <- tree(seasonal_vaccine~.,seasonal_train)
 
 plot(tree_seasonal)
@@ -652,15 +655,15 @@ It looks like an accuracy of 73.4% is better than chance. However, an error rate
 
 We can use cross-validation to determine what sized tree might be best for our purposes. We will use misclassification rate tog guide the cross-validation.
 
-```{r, warning=F}
+```{r, warning=F,fig.align = 'center',fig.cap="Tree cross-validation errors (Seasonal Flu)"}
+# Prune tree
 cv_tree_seasonal <-cv.tree(tree_seasonal,FUN=prune.misclass)
 
 names(cv_tree_seasonal)
 cv_tree_seasonal
 
-par(mfrow=c(1,2))
-
-plot(cv_tree_seasonal$size,cv_tree_seasonal$dev,type="b")
+# Plot cross validation errors
+plot(cv_tree_seasonal$size,cv_tree_seasonal$dev,type="b", main = "Tree cross-validation errors")
 
 ```
 
@@ -826,43 +829,146 @@ Now that we have looked at multiple tree-based methods and their performances on
 
 ### Support Vector Machines for seasonal flu
 
+Support vector machine (SVM) is an approach for classifying which does not have an assumption of linearity.  The one assumption required for SVM is that the variable of interest is binary.  Both variables (h1n1_vaccine and seasonal_vaccine) are binary, so the data meets this assumption. We attempted SVMs with linear, radial and polynomial kernels using default cost of 1. We were not able to tune the cost through cross-validation as the process was too computationally intensive for this project and caused more than half hour to process each. Since the default cost seemed to be working well, we stuck with it.
+
+### SVM for Seasonal Flu (linear)
+
+Support vector classifier (SVC) is the linear version of SVM.  If the classes can be separated by a linear boundary, the SVC will have a high prediction rate.
+
 ```{r}
 #SVC
 set.seed(140)
-
-svc.fit <- svm(seasonal_vaccine~., data=seasonal_train,kernel="linear",cost=0.01)
+svc.fit <- svm(seasonal_vaccine~., data=seasonal_train,kernel="linear")
 summary(svc.fit)
 ```
 
 ```{r}
+# Training predictions
 train.pred <- predict(svc.fit, seasonal_train)
+
+# Confusion matrix for training data
 table(seasonal_train$seasonal_vaccine,train.pred)
 
+# Training accuracy
 mean(seasonal_train$seasonal_vaccine==train.pred)
+```
+The training prediction rate for the seasonal vaccine using SVC was 78.7% (error rate 21.3%). This is comparable with models like logistic regression and random forest from above.
 
+### SVC performance on test set for seasonal flu
+
+```{r}
+# Test set predictions
+test.pred <- predict(svc.fit, seasonal_test)
+
+# Confusion matrix
+table(seasonal_test$seasonal_vaccine, test.pred)
+
+# Accuracy
+mean(seasonal_test$seasonal_vaccine== test.pred)
+
+# Sensitivity
+2774/(2774+749)
+
+# Specificity
+3352/(3352+981)
+```
+The test prediction rate was 78%, meaning the error rate was 22%.  The specificity was 77.4%, and the sensitivity was 78.7%.
+
+### SVM for Seasonal Flu (radial)
+
+A SVM with a radial kernel allows for a class to be centralized around one point (making something like a cirle), and the other class to occupy the remaining space.  If the prediction rate is high for this model, then this would indicate that there is one centralized class.
+
+```{r}
+#SVM with radial kernel
+set.seed(140)
+svm.fit <- svm(seasonal_vaccine~.,data=seasonal_train, kernel="radial")
+summary(svm.fit)
 ```
 
 ```{r}
-test.pred <- predict(svc.fit, seasonal_test)
-table(model_test$seasonal_vaccine, test.pred)
-mean(model_test$seasonal_vaccine== test.pred)
+# Training predictions
+train.pred <-  predict(svm.fit, seasonal_train)
 
+# Confusion matrix
+table(seasonal_train$seasonal_vaccine, train.pred)
+
+# Accuracy
+mean(seasonal_train$seasonal_vaccine==train.pred)
+```
+The training prediction rate for the radial SVM was 81% and an error rate of 19%. This looks promising!
+
+### Radial SVM performance on test set for seasonal flu
+
+```{r}
+# Test set predictions
+test.pred <- predict(svm.fit, seasonal_test)
+
+# Confusion matrix
+table(seasonal_test$seasonal_vaccine, test.pred)
+
+# Accuracy
+mean(seasonal_test$seasonal_vaccine== test.pred)
+
+# Sensitivity
+2826/(2826+775)
+
+# Specificity
+3326/(3326+929)
+```
+The test prediction rate was 78.3%, error rate 21.7%.  This is slightly better than the prediction rate of the SVC.  The sensitivity was 78.5% and the specificity was 78.2%. This test error rate is the best performance by a model so far.
+
+### SVM for Seasonal Flu (polynomial)
+
+SVM using a polynomial kernel is used when one class is separated completely by a second class (think of a river, with land on both sides).  A high prediction rate here would indicate this kind of fit.
+
+We fit a second degree polynomial SVM and evaluate its fit on the data.
+
+```{r}
+#SVM with polynomial kernel
+set.seed(140)
+svm.fit <- svm(seasonal_vaccine ~ ., data = seasonal_train, kernel = "poly", degree = 2)
+summary(svm.fit)
 ```
 
+```{r}
+# Training predictions
+train.pred <-  predict(svm.fit, seasonal_train)
 
+# Confusion matrix
+table(seasonal_train$seasonal_vaccine, train.pred)
 
+# Accuracy
+mean(seasonal_train$seasonal_vaccine==train.pred)
+```
+The training prediction rate was 80% (training error rate of 20%).
 
+### Second degree polynomial SVM performance on test set for seasonal flu
 
+```{r}
+# Test set predictions
+test.pred <- predict(svm.fit, seasonal_test)
 
+# Confusion matrix
+table(seasonal_test$seasonal_vaccine, test.pred)
 
+# Accuracy
+mean(seasonal_test$seasonal_vaccine== test.pred)
 
+# Sensitivity
+2762/(2762+738)
 
+# Specificity
+3363/(3363+993)
+```
 
+The SVM using a polynomial kernel for the seasonal flu vaccine had a predictive rate of 78% or an error rate of 22%.  The sensitivity of the model was 78.9% and the specificity was 77.2%.
+
+From these models, it looks like radial SVM results in the most accurate test predictions. We evaluate the performances of all models later in the report. For now, let's work on models to predict H1N1 flu vaccination.
 
 
 ## H1N1 Flu Vaccination Classification
 
-Next, we repeat the same process for the H1N1 vaccine.
+Here we repeat the same processes for the H1N1 vaccine that we used for seasonal flu vaccine.
 
 ### Full Logistic Regression Model for H1N1
 
@@ -875,7 +981,7 @@ Again using the probability of 0.5 for prediction cutoffs, we observe the follow
 Full_glm <- 
   glm(h1n1_vaccine~., data = h1n1_train, family = binomial)
 
-summary(Full_glm)
+# summary(Full_glm)
 ```
 
 ```{r}
@@ -949,7 +1055,7 @@ cv.lasso <- cv.glmnet(x, y, alpha = 1, family = "binomial")
 lasso_model <- glmnet(x, y, alpha = 1, family = "binomial",
                 lambda = cv.lasso$lambda.min)
 
-coef(lasso_model)
+# coef(lasso_model)
 ```
 
 
@@ -1005,7 +1111,7 @@ cv_ridge <- cv.glmnet(x, y, alpha = 0, family = "binomial")
 ridge_model <- glmnet(x, y, alpha = 0, family = "binomial",
                 lambda = cv_ridge$lambda.min)
 
-coef(ridge_model)
+# coef(ridge_model)
 ```
 
  
@@ -1110,7 +1216,8 @@ Now, just like before, we will see whether the tree-based methods result in bett
 
 Here, we create a simple tree for h1n1 vaccination classification.
 
-```{r, warning=F}
+```{r, warning=F,fig.align = 'center', fig.cap="Tree for h1n1 vaccine prediction"}
+# Fit tree
 tree_h1n1 <- tree(h1n1_vaccine~.,h1n1_train)
 
 plot(tree_h1n1)
@@ -1138,15 +1245,15 @@ It looks like we get an accuracy of 81.5% (an error rate of 18.5%), which is pre
 
 Just like before, we use misclassification rate to guide the cross-validation to determine the optimal size of the pruned tree.
 
-```{r, warning=F}
+```{r, warning=F,fig.align = 'center',fig.cap="Tree cross-validation errors (H1N1)"}
+# Prune tree
 cv_tree_h1n1 <-cv.tree(tree_h1n1,FUN=prune.misclass)
 
 names(cv_tree_h1n1)
 cv_tree_h1n1
 
-par(mfrow=c(1,2))
-
-plot(cv_tree_h1n1$size,cv_tree_h1n1$dev,type="b")
+# Plot cross validation errors
+plot(cv_tree_h1n1$size,cv_tree_h1n1$dev,type="b", main="Tree cross-validation errors")
 
 ```
 
@@ -1302,9 +1409,135 @@ Overall, it looks like the random forest and the boosted models were the best pe
 
 ### SVM for H1N1
 
+### SVM for H1N1 Flu (linear)
 
+Here, we use a linear SVM.
 
+```{r}
+#SVC
+set.seed(140)
+svc.fit <- svm(h1n1_vaccine~., data=h1n1_train,kernel="linear")
+summary(svc.fit)
+```
 
+```{r}
+# Training predictions
+train.pred <- predict(svc.fit, h1n1_train)
+
+# Confusion matrix for training data
+table(h1n1_train$h1n1_vaccine,train.pred)
+
+# Training accuracy
+mean(h1n1_train$h1n1_vaccine==train.pred)
+```
+The training prediction rate for the h1n1 vaccine using SVC was 83% (error rate 17%).
+
+### SVC performance on test set for h1n1 flu
+
+```{r}
+# Test set predictions
+test.pred <- predict(svc.fit, h1n1_test)
+
+# Confusion matrix
+table(h1n1_test$h1n1_vaccine, test.pred)
+
+# Accuracy
+mean(h1n1_test$h1n1_vaccine== test.pred)
+
+# Sensitivity
+868/(868+414)
+
+# Specificity
+5637/(5637+937)
+```
+The test prediction rate was 82.8%, meaning the error rate was 17.2%. The sensitivity was 67.7% and the specificity was 85.7%
+
+### SVM for h1n1 Flu (radial)
+
+Here we fit a radial SVM for h1n1 vaccine.
+
+```{r}
+#SVM with radial kernel
+set.seed(140)
+svm.fit <- svm(h1n1_vaccine~.,data=h1n1_train, kernel="radial")
+summary(svm.fit)
+```
+
+```{r}
+# Training predictions
+train.pred <-  predict(svm.fit, h1n1_train)
+
+# Confusion matrix
+table(h1n1_train$h1n1_vaccine, train.pred)
+
+# Accuracy
+mean(h1n1_train$h1n1_vaccine==train.pred)
+```
+The training prediction rate for the radial SVM was 84.2% and an error rate of 15.8%.
+
+### Radial SVM performance on test set for h1n1 flu
+
+```{r}
+# Test set predictions
+test.pred <- predict(svm.fit, h1n1_test)
+
+# Confusion matrix
+table(h1n1_test$h1n1_vaccine, test.pred)
+
+# Accuracy
+mean(h1n1_test$h1n1_vaccine== test.pred)
+
+# Sensitivity
+816/(816+362)
+
+# Specificity
+5689/(5689+989)
+```
+The test prediction rate was 82.8%, error rate 17.2%.  This is the same as the prediction rate of the SVC.  The sensitivity was 69.3% and the specificity was 85.2%. So this model is slightly more sensitive but less specific compared to the SVC model above.
+
+### SVM for h1n1 Flu (polynomial)
+
+We fit a second degree polynomial SVM and evaluate its fit on the data.
+
+```{r}
+#SVM with polynomial kernel
+set.seed(140)
+svm.fit <- svm(h1n1_vaccine ~ ., data = h1n1_train, kernel = "poly", degree = 2)
+summary(svm.fit)
+```
+
+```{r}
+# Training predictions
+train.pred <-  predict(svm.fit, h1n1_train)
+
+# Confusion matrix
+table(h1n1_train$h1n1_vaccine, train.pred)
+
+# Accuracy
+mean(h1n1_train$h1n1_vaccine==train.pred)
+```
+The training prediction rate was 83.5% (training error rate of 16.5%).
+
+### Second degree polynomial SVM performance on test set for h1n1 flu
+
+```{r}
+# Test set predictions
+test.pred <- predict(svm.fit, h1n1_test)
+
+# Confusion matrix
+table(h1n1_test$h1n1_vaccine, test.pred)
+
+# Accuracy
+mean(h1n1_test$h1n1_vaccine== test.pred)
+
+# Sensitivity
+805/(805+346)
+
+# Specificity
+5705/(5705+1000)
+```
+
+The SVM using a polynomial kernel for the h1n1 flu vaccine had a predictive rate of 82.9% or an error rate of 17.1%.  The sensitivity of the model was 69.9% and the specificity was 85.1%.
 
 
 ## Comparing all models
@@ -1317,12 +1550,14 @@ Below, we see the test set results for each model that was used to predict test 
 ```{r, warning=FALSE}
 seasonalflu_results_table <- data.frame(Methods = c("Full logistic regression","Lasso","Ridge","QDA","Tree","Bagged trees","Random Forest","Generalized Boosted Model","Support Vector Classifier","Radial SVM","Polynomial SVM"))
 
-seasonalflu_results_table <- results_table %>% mutate("Overall Accuracy"=c(0.778,0.764,0.758,0.72,0.732,0.77,0.777,0.778,0,0,0),"Sensitivity"=c(0.743,0.637,0.617,0.739,0.687,0.748,0.754,0.743,0,0,0),"Specificity"=c(0.81,0.881,0.888,0.702,0.773,0.791,0.799,0.811,0,0,0))
+seasonalflu_results_table <- seasonalflu_results_table %>% mutate("Overall Accuracy"=c(0.778,0.764,0.758,0.72,0.732,0.77,0.777,0.778,0.78,0.783,0.78),"Sensitivity"=c(0.743,0.637,0.617,0.739,0.687,0.748,0.754,0.743,0.787,0.785,0.789),"Specificity"=c(0.81,0.881,0.888,0.702,0.773,0.791,0.799,0.811,0.774,0.782,0.772))
 
 kable(seasonalflu_results_table %>% arrange(desc(`Overall Accuracy`)))
 ```
 
-From the table above, we can see that full logistic regression and generalized boosted models that we created were the most accurate overall. The generalized boosted model may have a slight edge here since it has a slightly higher specificity. We should note that the performances of the full logistic regression, generalized boosted model and the random forest model were comparable with each other. The other methods did not seem to work well with this specific classification problem. 
+From the table above, we can see that the radial support vector machine model that we created was the most accurate overall. In general the SVM methods seem to have outperformed all other methods. However, we should note that the performances of the full logistic regression, generalized boosted model and the random forest model were not that far behind. The SVM methods had the best overall accuracy but they were also much better at predicting vaccinations as we can see from their high sensitivity. However, their specificity were slightly lower than that of the logistic, random forest and GBM.
+
+Since our goal for this project is to create a model to predict how likely respondents were to vaccinate, it seems that radial SVM would be the best choice with regards to seasonal flu vaccination. It had the best overall accuracy but also had a pretty high sensitivity.
 
 
 ### H1N1 Vaccination Models
@@ -1332,47 +1567,27 @@ Next, let's compare the test results for each model that was used to predict tes
 ```{r, warning=FALSE}
 h1n1flu_results_table <- data.frame(Methods = c("Full logistic regression","Lasso","Ridge","QDA","Tree","Bagged trees","Random Forest","Generalized Boosted Model","Support Vector Classifier","Radial SVM","Polynomial SVM"))
 
-h1n1flu_results_table <- results_table %>% mutate("Overall Accuracy"=c(0.831,0.821,0.817,0.78,0.814,0.825,0.83,0.83,0,0,0),"Sensitivity"=c(0.478,0.335,0.303,0.614,0.373,0.474,0.457,0.474,0,0,0),"Specificity"=c(0.936,0.966,0.97,0.829,0.946,0.93,0.941,0.936,0,0,0))
+h1n1flu_results_table <- h1n1flu_results_table %>% mutate("Overall Accuracy"=c(0.831,0.821,0.817,0.78,0.814,0.825,0.83,0.83,0.828,0.828,0.829),"Sensitivity"=c(0.478,0.335,0.303,0.614,0.373,0.474,0.457,0.474,0.677,0.693,0.699),"Specificity"=c(0.936,0.966,0.97,0.829,0.946,0.93,0.941,0.936,0.857,0.852,0.851))
 
 kable(h1n1flu_results_table %>% arrange(desc(`Overall Accuracy`)))
 ```
 
-From this table, we can see that once again full logistic regression, random forest and generalized boosted models gave the best results. Even though logistic regression's performance was a little better overall, the other 2 models had comparable performances. 
+From this table, we can see that the full logistic regression, random forest and generalized boosted models gave the best overall results. However, the SVM methods were not far behind. We should note the sensitivity scores of the SVM methods are much higher than that of other methods. So, even though logistic regression, random forest and GBM seem to have slightly higher overall accuracy, their low sensitivity scores might lead to more false negatives. 
 
-Since these 3 methods performed well for our classification problems, if we were to proceed forward with further investigations for the competition, we should stick with one of these methods.
+Based on these results, if were to pick the best method to predict h1n1 vaccinations, we should likely pick the polynomial SVM. The overall performance of polynomial SVM was pretty close to that of the best overall methods but at the same time it was much more sensitive than them. The specificity for this SVM model was also pretty high at 85.1%.
 
 
 # Conclusions
 
+Based on the analysis presented in this report, it looks like if we are interested in predicting seasonal and h1n1 flu vaccinations, support vector machines might be our best choice for methods. While radial SVM had the best overall performance for seasonal flu vaccinations, second-degree polynomial SVM had better h1n1 flu vaccinations among the SVM methods. These methods had great overall accuracy and sensitivity for both response variables. Since the goal of the contest we were evaluating these models for was to predict how likely respondents were to get vaccinated, it might make sense to put slightly greater weight to sensitivity than specificity. 
 
+Since we identified Support Vector Machines as the best methods for this problem, we should discuss a limitation with these methods for the current project. We used the default cost parameter for our SVM models and they produced excellent results. It's possible that by tuning the cost parameter, we might be able to improve upon the performances. Our attempts to use cross-validation to tune this parameter was thwarted by our computational limits. If we decide to make official submission to the contest, we will look into ways to utilize Penn State's cluster computing services to perform this tuning in a timely manner.
 
+From our analysis for this project, we were also able to identify several predictors that seemed to be much more important in predicting vaccination rates. The random forest and generalized boosted models, that performed pretty well on both seasonal and h1n1 flu vaccines, suggested that the respondents' opinions on the risk of the disease, on the effectiveness of the vaccine, and their doctor's recommendations were the most important predictors along with age group (see appendix). From these observations, if our goal is to increase vaccination rates, it seems like we should design interventions to increase people's' awareness of the risks and vaccine effectiveness. We should also try to get more medical professionals to recommend vaccinations directly to their patients. By intervening on these factors, we might be able to increase vaccination rates. 
 
+We are currently in the middle of a global pandemic of COVID-19 that has infected millions of people worldwide.  Based on our models for both seasonal flu and h1n1 vaccines, it seems likely that COVID-19 vaccination rates will also be affected by these factors. Even though we don't have a vaccine for it yet, its a good idea to plan for interventions that will increase the COVID-19 vaccination rates.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Overall, our analysis provides a great stepping stone to determining how we can improve vaccination rates and thus protect the general population from contagious virus diseases.
 
 
 
@@ -1383,10 +1598,142 @@ Since these 3 methods performed well for our classification problems, if we were
 
 # Appendix
 
+## Data source 
+
+https://www.drivendata.org/competitions/66/flu-shot-learning/
+
+## Important predictors according to tree-based methods
+
+```{r, fig.align = 'center'}
+# Important predictors from Bagging for seasonal flu
+varImpPlot(bag_seasonal)
+
+# Important predictors from Random Forest for seasonal flu
+varImpPlot(rf_seasonal)
+
+# Important predictors from GBM for seasonal flu
+summary(boost_seasonal)
+
+# Important predictors from Bagging for h1n1 flu
+varImpPlot(bag_h1n1)
+
+# Important predictors from Random Forest for h1n1 flu
+varImpPlot(rf_h1n1)
+
+# Important predictors from GBM for h1n1 flu
+summary(boost_h1n1)
+```
+
+## Exploratory models
+
+### Full GLM with interactions
+```{r}
+# Fit logistic reg on full data
+Full_glm <- 
+  glm(seasonal_vaccine~.*doctor_recc_seasonal*age_group, 
+      data = seasonal_train, family = binomial)
+#summary(Full_glm)
+#length(coef(Full_glm))-1
+```
 
 
+### Full logistic regression model with interactions - Training error
+
+```{r}
+# Get the number of rows
+n_train <- nrow(seasonal_train)
+
+# Store the predictions on the existing data
+glm.probs <- predict(Full_glm, type = 'response')
+
+# Determine predictions
+glm.pred <- rep(0, n_train)
+glm.pred[glm.probs > .5] <- 1
+
+# Generate confusion matrix
+table(glm.pred, seasonal_train$seasonal_vaccine)
+
+# Proportion of correct responses
+mean(glm.pred == seasonal_train$seasonal_vaccine)
+```
+
+Training accuracy of 79.5, compared to 78.7% for the full logistic model without interactions. But the test accuracy decreases.
+
+### Full logistic regression model with interactions - Test error
 
 
+```{r}
+# Get the number of rows
+n_test <- nrow(seasonal_test)
+
+# Store the predictions on the existing data
+glm.probs <- predict(Full_glm, newdata = seasonal_test,type = 'response')
+
+# Determine predictions
+glm.pred <- rep(0, n_test)
+glm.pred[glm.probs > .5] <- 1
+
+# Generate confusion matrix
+table(glm.pred, seasonal_test$seasonal_vaccine)
+
+# Proportion of correct responses
+mean(glm.pred == seasonal_test$seasonal_vaccine)
+```
+
+Applied to the testing set, the testing accuracy dips slightly to 77.4% from 77.8% after adding interactions. The naive model would have done 52.2%. 
+
+### Lasso with interactions 
+```{r}
+# Reference: http://www.sthda.com/english/articles/36-classification-methods-essentials/149-penalized-logistic-regression-essentials-in-r-ridge-lasso-and-elastic-net/
+
+set.seed(14) 
+
+x <- model.matrix(seasonal_vaccine~.*doctor_recc_seasonal*age_group, seasonal_train)[,-1]
+y <- seasonal_train$seasonal_vaccine
+
+
+cv.lasso <- cv.glmnet(x, y, alpha = 1, family = "binomial", nfolds = 5)
+
+lasso_model <- glmnet(x, y, alpha = 1, family = "binomial",
+                lambda = cv.lasso$lambda.min)
+
+#coef(lasso_model)
+```
+
+### Lasso with interactions - Training errors
+
+```{r}
+# Store the predictions on the existing data
+lasso_train_probs <- predict(lasso_model, newx = x, type = 'response')
+
+# Determine predictions
+lasso_train_pred <- ifelse(lasso_train_probs > 0.5, 1, 0)
+
+# Generate confusion matrix
+table(lasso_train_pred, seasonal_train$seasonal_vaccine)
+mean(lasso_train_pred == seasonal_train$seasonal_vaccine)
+```
+
+Training accuracy - 78.9%. Note that including doctor recommendation and age group interactions did increase training accuracy to 0.789, but test accuracy were decreased. 
+
+### Lasso with interactions - Test error
+
+```{r}
+# Make predictions on the test data
+x_testing <- 
+  model.matrix(seasonal_vaccine~.*doctor_recc_seasonal*age_group, seasonal_test)[,-1]
+lasso_probs <- predict(lasso_model, newx = x_testing)
+
+lasso_pred <- ifelse(lasso_probs > 0.5, 1, 0)
+
+# Generate confusion matrix
+table(lasso_pred, seasonal_test$seasonal_vaccine)
+
+# Accuracy
+mean(lasso_pred == seasonal_test$seasonal_vaccine)
+```
+
+Including interactions decreased test accuracy to 76% from 76.4%. 
 
 
 
