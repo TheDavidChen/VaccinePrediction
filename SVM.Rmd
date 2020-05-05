@@ -26,7 +26,7 @@ model_train <-
 ## SVM
 
 
-**** General Description of SVM method
+Support vector machine (SVM) is an approach for classifying which does not have an assumption of linearity.  The one assumption required for SVM is that the variable of interest is binary.  Both variables (h1n1_vaccine and seasonal_vaccine) are binary, so the data meets this assumption.
 
 ### SVC for H1N1 (linear)
 
@@ -42,27 +42,27 @@ h1n1_train$h1n1_vaccine <- as.factor(model_train$h1n1_vaccine)
 svc.fit <- svm(h1n1_vaccine~., data=h1n1_train,kernel="linear",cost=0.01)
 summary(svc.fit)
 ```
-
+Support vector classifier (SVC) is the linear version of SVM.  If the classes can be separated by a linear boundry, the SVC will have a high prediction rate.
 ```{r}
 
 train.pred <- predict(svc.fit, h1n1_train)
 table(h1n1_train$h1n1_vaccine,train.pred)
-(8606+1308)/11963
 ```
-
-Training error rates.....
+While training set will overestimate predictive rate, it is good to compare the training to test rates.  For SVC, the H1N1 training prediction rate was 82.8%, with an error rate of 17.2%
 
 ```{r}
 
 test.pred <- predict(svc.fit, h1n1_test)
 table(h1n1_test$h1n1_vaccine, test.pred)
-(5771+843)/7973
-
 ```
 
-Test error rates, sensitivity, specificity....
+The test predictin rate for SVC on the H1N1 outcome variable was 82.8%, which means that the error rate was 17.2%, which is the same rate as the training set.  The sensitivity for the test set was 85.7% and the specificity was 67.9%.  
+
+This indicates that SVC is better at predictiting when an individual does not get the H1N1 vaccine than it is at prediticting when an individual does get the vaccine.
 
 ### SVM for H1N1 (radial)
+
+A SVM with a radial kernel allows for a class to be centralized around one point (making something like a cirle), and the other class to occupy the remaining space.  If the prediction rate is high for this model, then this would indicate that there is one centralized class.
 ```{r}
 
 #SVM with radial kernel
@@ -76,14 +76,16 @@ train.pred <- predict(svm.fit, h1n1_train)
 table(h1n1_train$h1n1_vaccine,train.pred)
 (8726+1338)/11963
 ```
-
+The training predtion rate for SVM using a radial kernal was 84.2% (15.2% error rate), which is and improvement compared to the training prediction rate of the SVC.
 ```{r}
 test.pred <- predict(svm.fit, h1n1_test)
 table(h1n1_test$h1n1_vaccine, test.pred)
-(5795+799)/7973
+
 ```
+The overall prediction rate of the radial SVM on the test data was 83.2% (16.8% error rate).  The specificity was 70.9% and the sensitivity was 85.3%.  So while this model did better at predicting whether or not the individual got the H1N1 vaccine overall and predicting individuals that recieved the vaccine specifically, it did slightly worse at predicting those who did not get the vaccine.
 
 ### SVM for H1N1 (polynomial)
+SVM using a polynomial kernel is used when one class is separated completely by a second class (think of a river, with land on both sides).  A high prediction rate here would indicate this kind of model.
 ```{r}
 
 #SVM with polynomial kernel
@@ -95,15 +97,15 @@ summary(svm.fit)
 ```{r}
 train.pred <- predict(svm.fit, h1n1_train)
 table(h1n1_train$h1n1_vaccine,train.pred)
-(8717+1267)/11963
 ```
-
+The training prediction rate was 81.1% (19.9% error rate), which is the lowest prediton rate in the three models for the H1N1 vaccine.
 ```{r}
 test.pred <- predict(svm.fit, h1n1_test)
 table(h1n1_test$h1n1_vaccine, test.pred)
-(5830+772)/7973
 ```
+The predition rate for the test set was 82.9%, with an error rate of 17.1%.  This is a little unique since the test rate was higher than the training prediction rate.  The sensitivity was 84.8% and specificity was 71.1%.
 
+Overall, the three models indicate that a radial SVM works best predicting whether or not a person got the H1N1 vaccine, but SVC worked best at predicting those who did not get the vaccine, and polynomial was best at predicting those who did get the vaccine.
 
 ### SVM for Seasonal Flu (linear)
 ```{r}
@@ -123,15 +125,13 @@ summary(svc.fit)
 ```{r}
 train.pred <- predict(svc.fit, seasonal_train)
 table(seasonal_train$seasonal_vaccine,train.pred)
-(5104+4265)/11963
 ```
-
+The training prediction rate for the seasonal vaccine using SVC was 79.9% (error rate 20.1%).  This is slightly worse than the SVC training rate with the H1N1 vaccine.
 ```{r}
 test.pred <- predict(svc.fit, model_test)
 table(model_test$seasonal_vaccine, test.pred)
-(3384+2828)/7973
 ```
-
+The test prediction rate was 78.1%, meaning the error rate was 21.9%.  The specificity was 78.4%, and the sensitivity was 77.8%.  These are all lower when compred to the SVC done for the H1N1 vaccine.
 ### SVM for Seasonal Flu (radial)
 ```{r}
 
@@ -144,15 +144,13 @@ summary(svm.fit)
 ```{r}
 train.pred <-  predict(svm.fit, seasonal_train)
 table(seasonal_train$seasonal_vaccine, train.pred)
-(5207+4455)/11963
 ```
-
+The training prediction rate for the radial SVM was 81% and an error rate of 19%.
 ```{r}
 test.pred <- predict(svm.fit, seasonal_test)
 table(seasonal_test$seasonal_vaccine, test.pred)
-(3393+2859)/7973
 ```
-
+The test prediction rate was 78.5%, error rate 21.5%.  This is slightly better than the prediction rate of the SVC.  The sensitivity and the specificity for the radial SVM model was also 78.5%.  This means that radial SVM did an equal job of predicting whether or not the individual received the seasonal flu vaccine.
 ### SVM for Seasonal Flu (polynomial)
 ```{r}
 #SVM with polynomial kernel
@@ -164,17 +162,14 @@ summary(svm.fit)
 ```{r}
 train.pred <-  predict(svm.fit, seasonal_train)
 table(seasonal_train$seasonal_vaccine, train.pred)
-(5223+4265)/11963
-
 ```
-
+The training prediction rate was 79.8% (training error rate of 20.2%).  This is almost the same rate as the SVC model.
 ```{r}
 test.pred <- predict(svm.fit, seasonal_test)
 table(seasonal_test$seasonal_vaccine, test.pred)
-(3427+2762)/7973
-
 ```
+The SVM using a polynomial kernel for the seasonal flu vaccine had a predictive rate of 78.2% or an error rate of 11.8%.  The sensitivity of the model was 77.8% and the specificity was 78.6%.
 
-For the H1N1 vaccinations, SVC had a predictive ability of 82.9%, which accounts for a training error rate of 17.1%.  The test error rate was 17%, which means that the testing prediction rate was 83%.  Radial SVM had a test prediction rate of 82.7%, giving an error rate of 17.3%.  The SVM with a polynomial kernel had a test error rate of 17.2%, which is the highest of the three models.  The test prediction rate was 82.8%. For the seasonal vaccinations, the SVC showed a prediction rate of 77.9%, SVM with radial and polynomial kernels had prediction rates of 78.4% and 77.6% respectively.  
+For the seasonal flu vaccine, the best overall model was using a radial kernel with SVM, although all the overall prediction rates were within a percentage point.  The best model for predicting individuals that did not have the seasonal flu vaccine was also the radial SVM.  The model that best predicted those who did have the seasonal flu vaccine was the polynomial vaccine.
 
-Taken all together, the range across the 6 models was small. SVC predicted H1N1 best, but SVM with a radial kernel predicted seasonal vaccine best.
+Taken all together, the range of prediction rate was close within the vaccines, but across the vaccines, SVM did a better job of predicting H1N1 across all models.
