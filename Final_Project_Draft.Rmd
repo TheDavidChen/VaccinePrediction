@@ -2,7 +2,9 @@
 title: "Predicting Seasonal and Swine Flu (H1N1) Vaccinations"
 author: "Sandesh Bhandari, David Chen, Elizabeth Saline"
 date: "5/4/2020"
-output: html_document
+output: 
+  html_document:
+    self_contained: yes
 ---
 
 # Introduction
