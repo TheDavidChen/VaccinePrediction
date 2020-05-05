@@ -2,7 +2,9 @@
 title: "Predicting Seasonal and Swine Flu (H1N1) Vaccinations"
 author: "Sandesh Bhandari, David Chen, Elizabeth Saline"
 date: "5/4/2020"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
 
 # Introduction
@@ -11,14 +13,14 @@ Vaccines have proven an effective way to protect people against certain viral di
 
 The data for this project comes from a contest hosted by DrivenData.  The goal of the contest is to predict how likely individuals are to receive two vaccines: the H1N1 and seasonal flu.  The data was collected through the National 2009 H1N1 Flu Survey.  A number of belief, behavior, and demographic factors were collected and used to create models to predict whether the individual received one, both, or neither of the vaccines.
 
-Since we are dealing with 2 classification problems, we explored the classification methods from the STAT 508 course. Specifically, we looked at regression methods, tree-based methods and support vector machines (SVM). We compared the test set results of all these methods and found that some of them worked well while others did not. We found that support vector machines seemed to perform the best overall. For seasonal vaccination prediction, the radial SVM had the best overall test set accuracy of 78.3%. For h1n1 vaccination prediction, full logistic regression resulted in the best overall test set accuracy of 83.1%.
+Since we are dealing with 2 classification problems, we explored the classification methods from the STAT 508 course. Specifically, we looked at regression methods, tree-based methods and support vector machines (SVM). We compared the test set results of all these methods and found that some of them worked well while others did not. We found that support vector machines seemed to perform the best overall. For seasonal vaccination prediction, the radial SVM had the best overall test set accuracy of 78.3%. For H1N1 vaccination prediction, full logistic regression resulted in the best overall test set accuracy of 83.1%.
 
 Due to the large number of observations, it wasn't computationally feasible for us to evaluate some of the modeling techniques thoroughly. In the future, if we decide on making official submission to the competition, we will consider using cluster computing services offered by Penn State to further improve upon our models.
 
 
 # Data
 
-For this project, we are working with seasonal flu and swine flue (h1n1) vaccination data provided through drivendata.org (link in Appendix). We are interested in creating models to predict seasonal flu and swine flu vaccinations. We are exploring the usefulness of various modeling techniques we have learned throughout the semester in tackling this classification problem. For the purposes of this project, we will only use the training data provided in the website, which consists of 26707 observations of 36 variables. We first load the necessary libraries, data set, and global options.
+For this project, we are working with seasonal flu and swine flu (H1N1) vaccination data provided through drivendata.org (link in Appendix). We are interested in creating models to predict seasonal flu and swine flu vaccinations. We are exploring the usefulness of various modeling techniques we have learned throughout the semester in tackling this classification problem. For the purposes of this project, we will only use the training data provided in the website, which consists of 26707 observations of 36 variables. We first load the necessary libraries, data set, and global options.
 
 ```{r warning = F, message = F}
 # Clean up R environment
@@ -82,7 +84,7 @@ training %>%
             n = n())
 ```
 
-We found that 46.6% of respondents were vaccinated for the flu, while only 21.2% were vaccinated for h1n1. Let's see what the relationship between the 2 vaccinations look like.
+We found that 46.6% of respondents were vaccinated for the flu, while only 21.2% were vaccinated for H1N1. Let's see what the relationship between the 2 vaccinations look like.
 
 ```{r}
 # Cross-tabs of the 2 vaccines
@@ -93,7 +95,7 @@ training %>%
             proportion=h1n1_vaccinated/n)
 ```
 
-From the output above, we can see that out of respondents who had vaccinated for seasonal flu 37.77% also vaccinated for h1n1. But for respondents who had not vaccinated for seasonal flu, only 6.85% vaccinated for h1n1. This shows that the 2 vaccinations are related to each other. People seem to be more likely to get h1n1 vaccine if they get seasonal flu vaccine as well.
+From the output above, we can see that out of respondents who had vaccinated for seasonal flu 37.77% also vaccinated for H1N1. But for respondents who had not vaccinated for seasonal flu, only 6.85% vaccinated for H1N1. This shows that the 2 vaccinations are related to each other. People seem to be more likely to get h1n1 vaccine if they get seasonal flu vaccine as well.
 
 In addition to the 2 response variables, we also have 32 potential predictors (not including respondent IDs and the 3 variables from above with huge number of NAs). Out of these, 15 are demographic variables. Let's first look at these demographic variables.
 
