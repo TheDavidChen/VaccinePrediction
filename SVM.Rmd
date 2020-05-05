@@ -175,6 +175,8 @@ table(seasonal_test$seasonal_vaccine, test.pred)
 
 ```
 
+
+
 For the H1N1 vaccinations, SVC had a predictive ability of 82.9%, which accounts for a training error rate of 17.1%.  The test error rate was 17%, which means that the testing prediction rate was 83%.  Radial SVM had a test prediction rate of 82.7%, giving an error rate of 17.3%.  The SVM with a polynomial kernel had a test error rate of 17.2%, which is the highest of the three models.  The test prediction rate was 82.8%. For the seasonal vaccinations, the SVC showed a prediction rate of 77.9%, SVM with radial and polynomial kernels had prediction rates of 78.4% and 77.6% respectively.  
 
 Taken all together, the range across the 6 models was small. SVC predicted H1N1 best, but SVM with a radial kernel predicted seasonal vaccine best.
